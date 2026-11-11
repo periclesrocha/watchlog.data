@@ -20,7 +20,7 @@ import re
 import sys
 import unicodedata
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -274,8 +274,12 @@ def main():
         log("recommendations:", msg)
 
     # ---- pick up where you left off ----
+    # Unfinished, well-rated shows that are still "live": watched in the past three years,
+    # or at least halfway through. Shows sampled once years ago are left out.
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=1095)).strftime("%Y-%m-%d")
     cont = [s for s in out_shows if s["nextUp"] and s["aired"] and s["watched"] >= 2
-            and s["watched"] < s["aired"] and (s["rating"] or 0) >= 7.0]
+            and s["watched"] < s["aired"] and (s["rating"] or 0) >= 7.0
+            and ((s["last"] or "") >= cutoff or s["watched"] / s["aired"] >= 0.5)]
     cont.sort(key=lambda s: (s["last"] or ""), reverse=True)
 
     dashboard = {

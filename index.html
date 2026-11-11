@@ -158,7 +158,7 @@
 <section class="section" id="continue">
   <div class="section-header">
     <h2>Pick up where you left off</h2>
-    <span class="hint">Shows rated 7+ on IMDb that you haven't finished, most recent first</span>
+    <span class="hint">Unfinished shows rated 7+ on IMDb, watched in the last 3 years or at least half done</span>
   </div>
   <div class="table-wrap">
     <table class="data" id="continue-table">
@@ -617,6 +617,7 @@ function renderEpisodes(showId, shows) {
           tooltip
         } },
       { mark: { type: 'text', fontSize: 9, fontWeight: 600 },
+        transform: [{ filter: 'datum.rating != null' }],
         encoding: {
           text: { field: 'rating', type: 'quantitative', format: '.1f' },
           color: { condition: { test: 'datum.rating >= ' + (rated.length ? ((Math.min(...rated.map(v => v.rating)) + Math.max(...rated.map(v => v.rating))) / 2).toFixed(2) : 99), value: '#0f1523' }, value: '#e7ebf3' },
