@@ -134,7 +134,7 @@ def main():
 
     # ---- 3. titles, genres, runtimes; candidates for recommendations ----
     rec_keys = {}
-    for r in recs_csv:
+    for r in recs_csv + also_csv:
         if not nn(r.get("imdb_id")):
             rec_keys.setdefault(norm(r["title"]), []).append(r)
     rec_candidates = collections.defaultdict(list)
@@ -150,6 +150,23 @@ def main():
             for k in {norm(row["primaryTitle"]), norm(row["originalTitle"])}:
                 if k in rec_keys:
                     rec_candidates[k].append(row)
+
+    def resolve(r):
+        """IMDb ID for a row with title/year/type: its imdb_id, or the best title match."""
+        t = nn(r.get("imdb_id"))
+        if t:
+            return t
+        types = SHOW_TYPES if r["type"] == "show" else MOVIE_TYPES
+        year = to_int(r.get("year"))
+        cands = [c for c in rec_candidates.get(norm(r["title"]), []) if c["titleType"] in types]
+        if year:
+            close = [c for c in cands if to_int(c["startYear"]) and abs(to_int(c["startYear"]) - year) <= 1]
+            cands = close or cands
+        cands.sort(key=lambda c: ratings.get(c["tconst"], (0, 0))[1], reverse=True)
+        if not cands:
+            return None
+        basics[cands[0]["tconst"]] = cands[0]
+        return cands[0]["tconst"]
 
     def info(t):
         b = basics.get(t, {})
@@ -248,7 +265,9 @@ def main():
     # ---- titles watched outside the synced history ----
     out_also = []
     for r in also_csv:
-        t = nn(r.get("imdb_id"))
+        t = resolve(r)
+        if t:
+            also_ids.add(t)
         if t and t in show_ids | movie_ids:
             continue  # it has since shown up in the synced history
         i = info(t) if t else {"rating": None, "votes": None, "genres": []}
@@ -260,18 +279,7 @@ def main():
     watched_titles = {norm(r["title"]) for r in also_csv}
     out_recs, problems = [], []
     for r in recs_csv:
-        t = nn(r.get("imdb_id"))
-        if not t:
-            types = SHOW_TYPES if r["type"] == "show" else MOVIE_TYPES
-            year = to_int(r.get("year"))
-            cands = [c for c in rec_candidates.get(norm(r["title"]), []) if c["titleType"] in types]
-            if year:
-                close = [c for c in cands if to_int(c["startYear"]) and abs(to_int(c["startYear"]) - year) <= 1]
-                cands = close or cands
-            cands.sort(key=lambda c: ratings.get(c["tconst"], (0, 0))[1], reverse=True)
-            t = cands[0]["tconst"] if cands else None
-            if t:
-                basics[t] = cands[0]
+        t = resolve(r)
         if not t:
             problems.append(f"not found on IMDb: {r['title']} ({r.get('year')})")
         if (t and t in watched_ids) or norm(r["title"]) in watched_titles:
