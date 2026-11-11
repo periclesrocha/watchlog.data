@@ -50,6 +50,7 @@
   }
   .kpi .value { font-size: 1.9rem; font-weight: 700; color: var(--accent2); }
   .kpi .label { color: var(--muted); font-size: 0.8rem; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi .sub { color: var(--muted); font-size: 0.72rem; margin-top: 6px; }
   .section { max-width: 1500px; margin: 0 auto; padding: 0 24px 32px; }
   .section-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
   .section-header h2 { margin: 0; font-size: 1.25rem; }
@@ -281,11 +282,11 @@
 <section class="section" id="seen-before">
   <div class="section-header">
     <h2>Seen before <span class="hint" id="seen-count"></span></h2>
-    <span class="hint">Titles I've seen outside the synced streaming history, so no watch dates</span>
+    <span class="hint">Titles I've seen outside the synced streaming history: no watch dates, and time is estimated (whole series for shows)</span>
   </div>
   <div class="table-wrap">
     <table class="data" id="seen-table">
-      <thead><tr><th>Title</th><th>Type</th><th>IMDb</th><th>Added</th></tr></thead>
+      <thead><tr><th>Title</th><th>Type</th><th>IMDb</th><th>Est. time</th><th>Added</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -366,16 +367,25 @@ async function main() {
   const ratedPlays = plays.filter(p => p.r != null);
   const avgImdb = ratedPlays.reduce((s, p) => s + p.r, 0) / (ratedPlays.length || 1);
   const years = dated.map(p => +p.d.slice(0, 4));
+  // Titles seen outside the synced history count too, with estimated time (no dates).
+  const before = data.alsoWatched || [];
+  const beforeMin = before.reduce((s, a) => s + (a.minutes || 0), 0);
+  const beforeEps = before.reduce((s, a) => s + (a.episodes || 0), 0);
+  const beforeShows = before.filter(a => a.type === 'show').length;
+  const beforeMovies = before.filter(a => a.type === 'movie').length;
+  const split = (streamed, prior, approx) => prior
+    ? `${streamed.toLocaleString()} streamed + ${approx ? '~' : ''}${prior.toLocaleString()} seen before` : '';
   const kpis = [
-    { label: 'Hours watched', value: Math.round(minutes / 60).toLocaleString() },
-    { label: 'Episodes', value: eps.length.toLocaleString() },
-    { label: 'Shows', value: shows.length },
-    { label: 'Movies', value: movies.length },
-    { label: 'Avg IMDb rating', value: avgImdb.toFixed(1) },
-    { label: 'Years', value: years.length ? (Math.max(...years) - Math.min(...years) + 1) : '-' },
+    { label: 'Hours watched', value: Math.round((minutes + beforeMin) / 60).toLocaleString(),
+      sub: split(Math.round(minutes / 60), Math.round(beforeMin / 60), true) },
+    { label: 'Episodes', value: (eps.length + beforeEps).toLocaleString(), sub: split(eps.length, beforeEps, true) },
+    { label: 'Shows', value: (shows.length + beforeShows).toLocaleString(), sub: split(shows.length, beforeShows) },
+    { label: 'Movies', value: (movies.length + beforeMovies).toLocaleString(), sub: split(movies.length, beforeMovies) },
+    { label: 'Avg IMDb rating', value: avgImdb.toFixed(1), sub: 'of what I streamed' },
+    { label: 'Years', value: years.length ? (Math.max(...years) - Math.min(...years) + 1) : '-', sub: years.length ? `${Math.min(...years)}–${Math.max(...years)}` : '' },
   ];
   document.getElementById('kpis').innerHTML = kpis.map(k =>
-    `<div class="kpi"><div class="value">${k.value}</div><div class="label">${k.label}</div></div>`).join('');
+    `<div class="kpi"><div class="value">${k.value}</div><div class="label">${k.label}</div>${k.sub ? `<div class="sub">${k.sub}</div>` : ''}</div>`).join('');
   const gen = new Date(data.generatedAt);
   document.getElementById('meta').textContent =
     `${plays.length.toLocaleString()} plays tracked · IMDb ratings as of ${gen.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`;
@@ -796,8 +806,9 @@ function renderSeen() {
       <td>${a.id ? `<a href="${imdbUrl(a.id)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>` : escapeHtml(a.title)}${a.year ? ` <span class="muted">(${a.year})</span>` : ''}</td>
       <td><span class="badge ${a.type}">${a.type === 'show' ? 'Series' : 'Movie'}</span></td>
       <td class="num">${ratingHtml(a.rating, a.votes)}</td>
+      <td class="muted">${a.minutes ? (a.minutes >= 120 ? Math.round(a.minutes / 60) + ' h' : a.minutes + ' min') + (a.episodes ? ` (${a.episodes} eps)` : '') : (a.pending ? 'after rebuild' : '')}</td>
       <td class="muted">${a.pending ? 'just now' : a.answeredAt ? fmtDate(a.answeredAt) : escapeHtml(a.note || '')}</td>
-    </tr>`).join('') : '<tr><td colspan="4" class="muted">Nothing yet. Use the buttons above.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="5" class="muted">Nothing yet. Use the buttons above.</td></tr>';
 }
 
 function answer(id, ans) {

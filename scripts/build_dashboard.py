@@ -111,6 +111,19 @@ def main():
     show_ids |= {p["show_imdb_id"] for p in plays if p["show_imdb_id"]}
     movie_ids = {p["imdb_id"] for p in plays if p["type"] == "movie" and p["imdb_id"]}
 
+    # Answers from the page's "Have I seen it?" section; the latest answer per title wins.
+    quiz_latest = {}
+    for r in quiz_csv:
+        if nn(r.get("imdb_id")):
+            quiz_latest[r["imdb_id"]] = r
+    # An "undo" from the page withdraws the answer before it.
+    quiz_latest = {k: v for k, v in quiz_latest.items() if v.get("answer") in ("seen", "not_seen")}
+    quiz_seen = [r for r in quiz_latest.values() if r.get("answer") == "seen"]
+    # Series seen outside the synced history: their episodes give an estimated watch time.
+    seen_show_ids = {r["imdb_id"] for r in also_csv if nn(r.get("imdb_id")) and r.get("type") == "show"}
+    seen_show_ids |= {r["imdb_id"] for r in quiz_seen if r.get("type") == "show"}
+    seen_show_eps = collections.defaultdict(list)
+
     # ---- 1. every episode of every show watched ----
     log("Reading title.episode ...")
     episodes_by_show = collections.defaultdict(list)       # show tconst -> [(tconst, season, ep)]
@@ -122,6 +135,9 @@ def main():
             episodes_by_show[parent].append((row["tconst"], s, e))
             if s is not None and e is not None:
                 ep_lookup[(parent, s, e)] = row["tconst"]
+        elif parent in seen_show_ids:
+            if (to_int(row["seasonNumber"]) or 0) > 0:
+                seen_show_eps[parent].append(row["tconst"])
 
     # Fill in episode IDs that Trakt didn't have, by show + season + episode number.
     resolved = 0
@@ -150,13 +166,6 @@ def main():
     rec_candidates = collections.defaultdict(list)
     also_ids = {r["imdb_id"] for r in also_csv if nn(r.get("imdb_id"))}
     # Latest answer per title wins (an answer can be changed by answering again).
-    quiz_latest = {}
-    for r in quiz_csv:
-        if nn(r.get("imdb_id")):
-            quiz_latest[r["imdb_id"]] = r
-    # An "undo" from the page withdraws the answer before it.
-    quiz_latest = {k: v for k, v in quiz_latest.items() if v.get("answer") in ("seen", "not_seen")}
-    quiz_seen = [r for r in quiz_latest.values() if r.get("answer") == "seen"]
     also_ids |= {r["imdb_id"] for r in quiz_seen}
     wanted = show_ids | movie_ids | all_episode_ids | also_ids | {r["imdb_id"] for r in recs_csv if nn(r.get("imdb_id"))}
     basics = {}
@@ -289,6 +298,16 @@ def main():
         out_my.append({"type": r["type"], "title": r["title"], "year": to_int(r["year"]), "id": r["imdb_id"] or None,
                        "mine": int(r["rating"]), "imdb": i["rating"]})
 
+    def seen_minutes(t, kind, i):
+        """Estimated watch time for a title seen outside the history: a movie's runtime, or every
+        aired episode of a series (episodes with an IMDb rating) times the series' episode runtime."""
+        if kind != "show":
+            return i.get("runtime"), None
+        aired_eps = [e for e in seen_show_eps.get(t, []) if e in ratings]
+        if not aired_eps or not i.get("runtime"):
+            return None, len(aired_eps) or None
+        return len(aired_eps) * i["runtime"], len(aired_eps)
+
     # ---- titles watched outside the synced history (no dates) ----
     out_also = []
     for r in quiz_seen:
@@ -296,18 +315,22 @@ def main():
         if t in show_ids | movie_ids:
             continue
         i = info(t)
+        mins, eps_n = seen_minutes(t, r["type"], i)
         out_also.append({"title": r["title"], "year": to_int(r.get("year")), "type": r["type"], "id": t,
                          "note": "Marked seen on the site", "answeredAt": r.get("answered_at") or None,
-                         "rating": i["rating"], "votes": i["votes"], "genres": i["genres"]})
+                         "rating": i["rating"], "votes": i["votes"], "genres": i["genres"],
+                         "minutes": mins, "episodes": eps_n})
     for r in also_csv:
         t = resolve(r)
         if t:
             also_ids.add(t)
         if t and t in show_ids | movie_ids:
             continue  # it has since shown up in the synced history
-        i = info(t) if t else {"rating": None, "votes": None, "genres": []}
+        i = info(t) if t else {"rating": None, "votes": None, "genres": [], "runtime": None}
+        mins, eps_n = seen_minutes(t, r["type"], i) if t else (None, None)
         out_also.append({"title": r["title"], "year": to_int(r.get("year")), "type": r["type"], "id": t,
-                         "note": r.get("note") or "", "rating": i["rating"], "votes": i["votes"], "genres": i["genres"]})
+                         "note": r.get("note") or "", "rating": i["rating"], "votes": i["votes"], "genres": i["genres"],
+                         "minutes": mins, "episodes": eps_n})
 
     # ---- recommendations ----
     watched_ids = show_ids | movie_ids | also_ids
