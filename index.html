@@ -116,6 +116,28 @@
     background: var(--card-bg); padding: 8px 14px; border-radius: 10px; white-space: nowrap;
   }
   .download-link:hover { border-color: var(--accent2); }
+  /* Have I seen it? */
+  .quiz { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .quiz .rec { transition: opacity .25s ease, transform .25s ease; }
+  .quiz .rec.leaving { opacity: 0; transform: scale(.96); }
+  .quiz .buttons { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
+  .quiz button, .setup button, .linkish {
+    font: inherit; font-size: 0.85rem; border-radius: 10px; padding: 8px 12px; cursor: pointer;
+    border: 1px solid var(--card-border); background: #1d263a; color: var(--text);
+  }
+  .quiz button { flex: 1; font-weight: 600; letter-spacing: .02em; }
+  .quiz button.seen { background: #12403f; border-color: #1f6b68; color: #b8f0eb; }
+  .quiz button.seen:hover { border-color: var(--accent2); }
+  .quiz button.not:hover { border-color: var(--muted); }
+  .quiz-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--muted); font-size: 0.85rem; min-height: 1.4em; margin: 0 0 12px; }
+  .quiz-status .ok { color: var(--accent2); }
+  .quiz-status .err { color: #ffb4bd; }
+  .linkish { background: none; border: none; padding: 0; color: var(--accent2); text-decoration: underline; font-size: 0.85rem; }
+  .setup { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 14px 18px; margin-bottom: 14px; font-size: 0.9rem; color: #c7cfe2; }
+  .setup ol { margin: 6px 0 10px 18px; padding: 0; line-height: 1.6; }
+  .setup .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .setup input { flex: 1; min-width: 240px; background: #0f1523; color: var(--text); border: 1px solid var(--card-border); border-radius: 10px; padding: 8px 12px; font: inherit; }
+  .setup .small { color: var(--muted); font-size: 0.8rem; margin: 8px 0 0; }
   #vg-tooltip-element.vg-tooltip { font-family: inherit; }
   footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 8px 24px 40px; line-height: 1.6; }
   footer a { color: var(--accent); }
@@ -222,7 +244,6 @@
     </table>
   </div>
   <p class="note" id="history-note"></p>
-  <p class="note" id="also-watched"></p>
 </section>
 
 <section class="section"><h2>Additional useless charts</h2></section>
@@ -231,6 +252,39 @@
   <div class="card"><h2>Hours watched by month</h2><div class="chart" id="chart-month-heat"></div></div>
   <div class="card"><h2>Biggest binge days <span class="subtitle">(episodes in one day)</span></h2><div class="chart" id="chart-binge"></div></div>
 </div>
+
+<section class="section" id="seen-it">
+  <div class="section-header">
+    <h2>Have I seen it?</h2>
+    <span class="hint">Popular titles on IMDb that aren't in my history. <b>Seen it</b> adds it to my list (no date); <b>Not seen it</b> means it won't be asked again.</span>
+  </div>
+  <div class="setup" id="quiz-setup" hidden>
+    <b>Connect GitHub to save answers.</b> Answers are saved to this site's repo, so the page needs a token that can only edit this repo. It's stored in this browser only.
+    <ol>
+      <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a fine-grained token</a> (signed in as the repo owner).</li>
+      <li><b>Repository access</b>: Only select repositories → <b>watchlog.data</b>.</li>
+      <li><b>Permissions</b> → Repository permissions → <b>Contents: Read and write</b>. Pick an expiration you're comfortable with.</li>
+      <li>Generate it and paste it here.</li>
+    </ol>
+    <div class="row"><input id="token-input" type="password" placeholder="github_pat_..." autocomplete="off" /><button id="token-save">Save token</button></div>
+    <p class="small" id="token-msg"></p>
+  </div>
+  <div class="quiz-status" id="quiz-status"></div>
+  <div class="quiz" id="quiz"></div>
+</section>
+
+<section class="section" id="seen-before">
+  <div class="section-header">
+    <h2>Seen before <span class="hint" id="seen-count"></span></h2>
+    <span class="hint">Titles I've seen outside the synced streaming history, so no watch dates</span>
+  </div>
+  <div class="table-wrap">
+    <table class="data" id="seen-table">
+      <thead><tr><th>Title</th><th>Type</th><th>IMDb</th><th>Added</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
 
 <footer>
   <span id="meta"></span><br />
@@ -471,13 +525,8 @@ async function main() {
       ? `Showing the latest ${shown.length} of ${rows.length.toLocaleString()} plays. Search to narrow it down.`
       : `${rows.length.toLocaleString()} plays.`;
   };
-  const also = data.alsoWatched || [];
-  if (also.length) {
-    document.getElementById('also-watched').innerHTML = 'Also watched, outside the synced history: ' + also.map(a =>
-      `${a.id ? `<a href="${imdbUrl(a.id)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>` : escapeHtml(a.title)}` +
-      `${a.rating != null ? ` (&#9733; ${a.rating.toFixed(1)})` : ''}`).join(', ') + '.';
-  }
   search.addEventListener('input', renderHistory);
+  setupQuiz(data);
   typeSel.addEventListener('change', renderHistory);
   renderHistory();
 
@@ -647,6 +696,209 @@ function renderEpisodes(showId, shows) {
         } }
     ]
   });
+}
+
+// ==================== Have I seen it? ====================
+// Answers are appended to data/quiz_answers.csv in the repo through the GitHub API, using a
+// fine-grained token (Contents: read & write on this repo only) kept in this browser's storage.
+// Every save triggers the build, which moves "seen" titles to the seen list and drops answered
+// titles from data/quiz.json. Until then, answers are remembered locally so the page stays current.
+const REPO = { owner: 'periclesrocha', name: 'watchlog.data', branch: 'main', path: 'data/quiz_answers.csv' };
+const QUIZ_SIZE = 20;
+const SAVE_DELAY_MS = 4000;
+const store = {
+  get(k, fallback) { try { const v = localStorage.getItem('watchlog.' + k); return v == null ? fallback : JSON.parse(v); } catch { return fallback; } },
+  set(k, v) { try { localStorage.setItem('watchlog.' + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+  del(k) { try { localStorage.removeItem('watchlog.' + k); } catch { /* storage unavailable */ } }
+};
+const Q = { pool: [], seenData: [], answers: store.get('answers', {}), queue: store.get('queue', []), withdrawn: store.get('withdrawn', {}),
+            last: null, timer: null, saving: false };
+
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function b64decode(b64) {
+  const bin = atob(b64.replace(/\s/g, ''));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+const csvCell = v => { const t = String(v ?? ''); return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+
+async function gh(method, url, body) {
+  const token = store.get('token', null);
+  const res = await fetch('https://api.github.com' + url, {
+    method,
+    headers: { 'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + token, 'X-GitHub-Api-Version': '2022-11-28',
+               ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(json.message || ('HTTP ' + res.status)); e.status = res.status; throw e; }
+  return json;
+}
+
+function setStatus(html) { document.getElementById('quiz-status').innerHTML = html; }
+function statusLine(extra = '') {
+  const pending = Q.queue.length;
+  const token = store.get('token', null);
+  let msg = '';
+  if (Q.saving) msg = 'Saving…';
+  else if (pending && !token) msg = `${pending} answer${pending > 1 ? 's' : ''} waiting to be saved. Connect GitHub above to save ${pending > 1 ? 'them' : 'it'}.`;
+  else if (pending) msg = `${pending} answer${pending > 1 ? 's' : ''} will be saved in a moment…`;
+  const undo = Q.last ? ` <button class="linkish" id="quiz-undo">Undo “${escapeHtml(Q.last.title)}”</button>` : '';
+  const conn = token ? ` <button class="linkish" id="quiz-disconnect">Disconnect GitHub</button>` : '';
+  setStatus(`${extra}${msg ? `<span>${msg}</span>` : ''}${undo}${conn}`);
+  document.getElementById('quiz-undo')?.addEventListener('click', undoLast);
+  document.getElementById('quiz-disconnect')?.addEventListener('click', () => {
+    store.del('token'); document.getElementById('quiz-setup').hidden = false; statusLine();
+  });
+}
+
+function renderQuiz() {
+  const box = document.getElementById('quiz');
+  const items = Q.pool.filter(t => !Q.answers[t.id]).slice(0, QUIZ_SIZE);
+  if (!items.length) { box.innerHTML = '<p class="note">That’s everything for now. More titles show up after the next rebuild.</p>'; return; }
+  box.innerHTML = items.map(t => `
+    <div class="rec" data-id="${escapeHtml(t.id)}">
+      <div class="top">
+        <h3><a href="${imdbUrl(t.id)}" target="_blank" rel="noopener">${escapeHtml(t.title)}</a>
+          <span class="year">${t.year || ''}${t.type === 'show' && t.endYear && t.endYear !== t.year ? '–' + t.endYear : ''}</span></h3>
+        ${ratingHtml(t.rating, t.votes)}
+      </div>
+      <div class="badges">
+        <span class="badge ${t.type}">${t.type === 'show' ? 'Series' : 'Movie'}</span>
+        ${(t.genres || []).slice(0, 3).map(g => `<span class="badge">${escapeHtml(g)}</span>`).join('')}
+      </div>
+      <div class="buttons">
+        <button class="seen" data-answer="seen">SEEN IT</button>
+        <button class="not" data-answer="not_seen">NOT SEEN IT</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderSeen() {
+  // Built data plus anything marked seen here that the next build hasn't picked up yet.
+  const ids = new Set(Q.seenData.map(a => a.id));
+  const local = Object.entries(Q.answers)
+    .filter(([id, a]) => a.answer === 'seen' && !ids.has(id))
+    .map(([id, a]) => ({ id, title: a.title, year: a.year, type: a.type, rating: a.rating, votes: a.votes, answeredAt: a.at, pending: true }));
+  const rows = [...local, ...Q.seenData.filter(a => !Q.withdrawn[a.id])]
+    .sort((a, b) => (b.answeredAt || '').localeCompare(a.answeredAt || ''));
+  document.getElementById('seen-count').textContent = rows.length ? `(${rows.length})` : '';
+  document.querySelector('#seen-table tbody').innerHTML = rows.length ? rows.map(a => `
+    <tr>
+      <td>${a.id ? `<a href="${imdbUrl(a.id)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>` : escapeHtml(a.title)}${a.year ? ` <span class="muted">(${a.year})</span>` : ''}</td>
+      <td><span class="badge ${a.type}">${a.type === 'show' ? 'Series' : 'Movie'}</span></td>
+      <td class="num">${ratingHtml(a.rating, a.votes)}</td>
+      <td class="muted">${a.pending ? 'just now' : a.answeredAt ? fmtDate(a.answeredAt) : escapeHtml(a.note || '')}</td>
+    </tr>`).join('') : '<tr><td colspan="4" class="muted">Nothing yet. Use the buttons above.</td></tr>';
+}
+
+function answer(id, ans) {
+  const t = Q.pool.find(x => x.id === id);
+  if (!t) return;
+  const at = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  Q.answers[id] = { answer: ans, title: t.title, year: t.year, type: t.type, rating: t.rating, votes: t.votes, at };
+  const row = { imdb_id: id, title: t.title, year: t.year ?? '', type: t.type, answer: ans, answered_at: at };
+  Q.queue.push(row);
+  Q.last = row;
+  store.set('answers', Q.answers); store.set('queue', Q.queue);
+  const card = document.querySelector(`#quiz .rec[data-id="${CSS.escape(id)}"]`);
+  if (card) card.classList.add('leaving');
+  setTimeout(() => { renderQuiz(); renderSeen(); }, 220);
+  if (!store.get('token', null)) document.getElementById('quiz-setup').hidden = false;
+  scheduleSave();
+  statusLine();
+}
+
+function undoLast() {
+  const row = Q.last; if (!row) return;
+  Q.last = null;
+  delete Q.answers[row.imdb_id];                    // the title goes back in the quiz right away
+  const i = Q.queue.indexOf(row);
+  if (i >= 0) Q.queue.splice(i, 1);                 // not saved yet: just drop it
+  else {                                            // already saved: record an undo for the build
+    Q.queue.push({ ...row, answer: 'undo', answered_at: new Date().toISOString().replace(/\.\d+Z$/, 'Z') });
+    Q.withdrawn[row.imdb_id] = true;
+  }
+  store.set('answers', Q.answers); store.set('queue', Q.queue); store.set('withdrawn', Q.withdrawn);
+  renderQuiz(); renderSeen(); scheduleSave(); statusLine();
+}
+
+function scheduleSave() {
+  clearTimeout(Q.timer);
+  if (Q.queue.length && store.get('token', null)) Q.timer = setTimeout(flush, SAVE_DELAY_MS);
+}
+
+async function flush() {
+  if (Q.saving || !Q.queue.length || !store.get('token', null)) return;
+  Q.saving = true; statusLine();
+  const batch = Q.queue.slice();
+  const api = `/repos/${REPO.owner}/${REPO.name}/contents/${REPO.path}`;
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let sha, text = 'imdb_id,title,year,type,answer,answered_at\n';
+      try {
+        const cur = await gh('GET', `${api}?ref=${REPO.branch}&t=${Date.now()}`);
+        sha = cur.sha; text = b64decode(cur.content);
+      } catch (e) { if (e.status !== 404) throw e; }
+      if (text && !text.endsWith('\n')) text += '\n';
+      text += batch.map(r => ['imdb_id', 'title', 'year', 'type', 'answer', 'answered_at'].map(k => csvCell(r[k])).join(',')).join('\n') + '\n';
+      try {
+        await gh('PUT', api, { message: `Have I seen it?: ${batch.length} answer${batch.length > 1 ? 's' : ''}`, content: b64encode(text), sha, branch: REPO.branch });
+        break;
+      } catch (e) { if ((e.status === 409 || e.status === 422) && attempt === 0) continue; throw e; }
+    }
+    Q.queue = Q.queue.filter(r => !batch.includes(r));
+    store.set('queue', Q.queue);
+    Q.saving = false;
+    statusLine(`<span class="ok">Saved ${batch.length} answer${batch.length > 1 ? 's' : ''}. The site catches up in about 2 minutes.</span>`);
+    scheduleSave();
+  } catch (e) {
+    Q.saving = false;
+    const why = e.status === 401 ? 'the token was rejected (expired or mistyped?)'
+      : (e.status === 403 || e.status === 404) ? 'the token can’t write to watchlog.data (check Contents: Read and write)'
+      : e.message;
+    statusLine(`<span class="err">Couldn’t save: ${escapeHtml(why)}. Your answers are kept and will be retried.</span>`);
+    if (e.status === 401 || e.status === 403 || e.status === 404) document.getElementById('quiz-setup').hidden = false;
+  }
+}
+
+async function setupQuiz(data) {
+  Q.seenData = data.alsoWatched || [];
+  try { Q.pool = await getJson('data/quiz.json'); } catch { Q.pool = []; }
+  if (!Q.pool.length) { document.getElementById('seen-it').hidden = true; }
+  // Forget local "undo" markers once the build no longer lists the title as seen.
+  const builtSeen = new Set(Q.seenData.map(a => a.id));
+  for (const id of Object.keys(Q.withdrawn)) if (!builtSeen.has(id) && !Q.queue.some(r => r.imdb_id === id)) delete Q.withdrawn[id];
+  store.set('withdrawn', Q.withdrawn);
+  document.getElementById('quiz').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-answer]'); if (!btn) return;
+    answer(btn.closest('.rec').dataset.id, btn.dataset.answer);
+  });
+  document.getElementById('token-save').addEventListener('click', async () => {
+    const input = document.getElementById('token-input');
+    const msg = document.getElementById('token-msg');
+    const token = input.value.trim(); if (!token) return;
+    store.set('token', token);
+    msg.textContent = 'Checking…';
+    try {
+      const repo = await gh('GET', `/repos/${REPO.owner}/${REPO.name}`);
+      if (repo.permissions && repo.permissions.push === false) throw Object.assign(new Error('read-only'), { status: 403 });
+      input.value = ''; msg.textContent = '';
+      document.getElementById('quiz-setup').hidden = true;
+      statusLine('<span class="ok">Connected. Answers will be saved to the repo.</span>');
+      scheduleSave();
+    } catch (e) {
+      store.del('token');
+      msg.textContent = e.status === 401 ? 'That token was rejected. Check it and try again.'
+        : 'That token can’t write to watchlog.data. It needs Contents: Read and write on this repo.';
+    }
+  });
+  renderQuiz(); renderSeen(); statusLine();
+  if (Q.queue.length && !store.get('token', null)) document.getElementById('quiz-setup').hidden = false;
+  scheduleSave();
 }
 
 main();

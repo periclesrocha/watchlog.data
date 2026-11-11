@@ -6,8 +6,11 @@
 
 Reads  data/watch_history.csv, data/shows.csv, data/my_ratings.csv, data/recommendations.csv,
        data/also_watched.csv (titles seen outside the synced history, without dates)
+       data/quiz_answers.csv (answers from the page's "Have I seen it?" section)
+       data/finished_shows.csv (shows finished outside the synced history)
 Writes data/dashboard.json  (plays, shows, movies, recommendations, pick-up-where-you-left-off)
        data/episodes.json   (every episode of every show you watched, with its IMDb rating)
+       data/quiz.json       (popular IMDb titles not watched or answered yet, for the quiz)
 
 IMDb data: https://developer.imdb.com/non-commercial-datasets/ (personal, non-commercial use).
 Only the standard library is needed.
@@ -29,6 +32,10 @@ DATA = ROOT / "data"
 IMDB_BASE = "https://datasets.imdbws.com/"
 FILES = ["title.ratings.tsv.gz", "title.episode.tsv.gz", "title.basics.tsv.gz"]
 SHOW_TYPES = {"tvSeries", "tvMiniSeries"}
+QUIZ_MIN_VOTES_MOVIE = 100_000
+QUIZ_MIN_VOTES_SHOW = 50_000
+QUIZ_POOL_MOVIES = 800
+QUIZ_POOL_SHOWS = 400
 MOVIE_TYPES = {"movie", "tvMovie", "video", "tvSpecial"}
 
 
@@ -94,6 +101,9 @@ def main():
     my_ratings = read_csv("my_ratings.csv")
     recs_csv = read_csv("recommendations.csv")
     also_csv = read_csv("also_watched.csv")
+    quiz_csv = read_csv("quiz_answers.csv")
+    finished = {r["imdb_id"] for r in read_csv("finished_shows.csv") if nn(r.get("imdb_id"))}
+    finished_titles = {norm(r["title"]) for r in read_csv("finished_shows.csv")}
     if not plays:
         sys.exit("data/watch_history.csv is empty or missing")
 
@@ -139,13 +149,29 @@ def main():
             rec_keys.setdefault(norm(r["title"]), []).append(r)
     rec_candidates = collections.defaultdict(list)
     also_ids = {r["imdb_id"] for r in also_csv if nn(r.get("imdb_id"))}
+    # Latest answer per title wins (an answer can be changed by answering again).
+    quiz_latest = {}
+    for r in quiz_csv:
+        if nn(r.get("imdb_id")):
+            quiz_latest[r["imdb_id"]] = r
+    # An "undo" from the page withdraws the answer before it.
+    quiz_latest = {k: v for k, v in quiz_latest.items() if v.get("answer") in ("seen", "not_seen")}
+    quiz_seen = [r for r in quiz_latest.values() if r.get("answer") == "seen"]
+    also_ids |= {r["imdb_id"] for r in quiz_seen}
     wanted = show_ids | movie_ids | all_episode_ids | also_ids | {r["imdb_id"] for r in recs_csv if nn(r.get("imdb_id"))}
     basics = {}
+    pool = {"movie": [], "show": []}
     log("Reading title.basics ...")
     for row in tsv(args.imdb_dir / "title.basics.tsv.gz"):
         t = row["tconst"]
         if t in wanted:
             basics[t] = row
+        # Popular titles for the "Have I seen it?" quiz.
+        tt = row["titleType"]
+        if row.get("isAdult") == "0" and tt in ("movie", "tvSeries", "tvMiniSeries"):
+            votes = ratings.get(t, (0, 0))[1]
+            if votes >= (QUIZ_MIN_VOTES_MOVIE if tt == "movie" else QUIZ_MIN_VOTES_SHOW):
+                pool["movie" if tt == "movie" else "show"].append(row)
         if rec_keys and row["titleType"] in SHOW_TYPES | MOVIE_TYPES:
             for k in {norm(row["primaryTitle"]), norm(row["originalTitle"])}:
                 if k in rec_keys:
@@ -235,6 +261,7 @@ def main():
             "avgEpisodeRating": round(sum(ep_ratings) / len(ep_ratings), 2) if ep_ratings else None,
             "myRating": mine.get(sid) or mine.get(norm(title)),
             "nextUp": next_up,
+            "finished": sid in finished or norm(title) in finished_titles,
         })
     out_shows.sort(key=lambda s: -s["plays"])
 
@@ -262,8 +289,16 @@ def main():
         out_my.append({"type": r["type"], "title": r["title"], "year": to_int(r["year"]), "id": r["imdb_id"] or None,
                        "mine": int(r["rating"]), "imdb": i["rating"]})
 
-    # ---- titles watched outside the synced history ----
+    # ---- titles watched outside the synced history (no dates) ----
     out_also = []
+    for r in quiz_seen:
+        t = r["imdb_id"]
+        if t in show_ids | movie_ids:
+            continue
+        i = info(t)
+        out_also.append({"title": r["title"], "year": to_int(r.get("year")), "type": r["type"], "id": t,
+                         "note": "Marked seen on the site", "answeredAt": r.get("answered_at") or None,
+                         "rating": i["rating"], "votes": i["votes"], "genres": i["genres"]})
     for r in also_csv:
         t = resolve(r)
         if t:
@@ -299,7 +334,7 @@ def main():
     # Unfinished, well-rated shows that are still "live": watched in the past three years,
     # or at least halfway through. Shows sampled once years ago are left out.
     cutoff = (datetime.now(timezone.utc) - timedelta(days=1095)).strftime("%Y-%m-%d")
-    cont = [s for s in out_shows if s["nextUp"] and s["aired"] and s["watched"] >= 2
+    cont = [s for s in out_shows if s["nextUp"] and s["aired"] and s["watched"] >= 2 and not s["finished"]
             and s["watched"] < s["aired"] and (s["rating"] or 0) >= 7.0
             and ((s["last"] or "") >= cutoff or s["watched"] / s["aired"] >= 0.5)]
     cont.sort(key=lambda s: (s["last"] or ""), reverse=True)
@@ -308,6 +343,7 @@ def main():
         "generatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "plays": out_plays, "shows": out_shows, "movies": out_movies, "myRatings": out_my,
         "recommendations": out_recs, "alsoWatched": out_also,
+        "quizAnswered": len(quiz_latest),
         "continueWatching": [{"title": s["title"], "id": s["id"], "watched": s["watched"], "aired": s["aired"],
                               "last": s["last"], "rating": s["rating"], "nextUp": s["nextUp"]} for s in cont],
     }
@@ -315,6 +351,33 @@ def main():
         json.dump(dashboard, f, ensure_ascii=False, separators=(",", ":"))
     with open(DATA / "episodes.json", "w", encoding="utf-8") as f:
         json.dump(episodes_out, f, ensure_ascii=False, separators=(",", ":"))
+
+    # ---- "Have I seen it?" pool: most-voted titles not watched, rated or answered yet ----
+    known = show_ids | movie_ids | also_ids | set(quiz_latest) | {r["imdb_id"] for r in my_ratings if r["imdb_id"]}
+    known_titles = {(norm(r["title"]), to_int(r.get("year"))) for r in my_ratings + also_csv}
+    def pick(rows, n):
+        rows = [r for r in rows if r["tconst"] not in known
+                and (norm(r["primaryTitle"]), to_int(r["startYear"])) not in known_titles]
+        rows.sort(key=lambda r: ratings[r["tconst"]][1], reverse=True)
+        return rows[:n]
+    movies_q, shows_q = pick(pool["movie"], QUIZ_POOL_MOVIES), pick(pool["show"], QUIZ_POOL_SHOWS)
+    quiz = []
+    while movies_q or shows_q:          # two movies, then one show
+        for src, k in ((movies_q, 2), (shows_q, 1)):
+            for _ in range(k):
+                if src:
+                    r = src.pop(0)
+                    rating, votes = ratings[r["tconst"]]
+                    genres = nn(r["genres"])
+                    quiz.append({"id": r["tconst"], "title": r["primaryTitle"],
+                                 "type": "movie" if r["titleType"] == "movie" else "show",
+                                 "year": to_int(r["startYear"]), "endYear": to_int(r["endYear"]),
+                                 "rating": rating, "votes": votes,
+                                 "genres": genres.split(",") if genres else [],
+                                 "runtime": to_int(r["runtimeMinutes"])})
+    with open(DATA / "quiz.json", "w", encoding="utf-8") as f:
+        json.dump(quiz, f, ensure_ascii=False, separators=(",", ":"))
+    log(f"Quiz: {len(quiz)} titles in the pool; {len(quiz_latest)} answered ({len(quiz_seen)} seen)")
 
     rated = sum(1 for p in out_plays if p["r"] is not None)
     log(f"Plays with an IMDb rating: {rated}/{len(out_plays)}; shows: {len(out_shows)}; movies: {len(out_movies)}; "

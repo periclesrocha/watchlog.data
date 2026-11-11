@@ -53,6 +53,16 @@ Titles watched somewhere that didn't sync (no dates) go in `data/also_watched.cs
 (`title`, `year`, `type`, `imdb_id`, `note`). They're listed under the history and
 never recommended.
 
+Shows finished outside the synced history go in `data/finished_shows.csv`
+(`title`, `imdb_id`, `note`) so they drop off "Pick up where you left off".
+
+The **Have I seen it?** section at the bottom asks about popular IMDb titles that aren't
+in the history (`data/quiz.json`, rebuilt by the Action). Answers are appended to
+`data/quiz_answers.csv` straight from the page through the GitHub API, using a
+fine-grained token with *Contents: Read and write* on this repo only, stored in your
+browser. "Seen it" titles join the seen list and are never recommended; "Not seen it"
+titles are never asked again.
+
 To change the recommendations, edit `data/recommendations.csv` (`title`, `year`,
 `type` = `show` or `movie`, `because`, `why`; `imdb_id` is optional and only needed if
 the title match picks the wrong one) and push. Anything already in the history is
