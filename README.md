@@ -32,10 +32,11 @@ Trakt export (.zip) ──► scripts/import_trakt.py ──► data/*.csv ─�
   Titles listed in `exclude.txt` (kids' viewing) are left out. `exclude.txt` stays on
   your computer: it's in `.gitignore`.
 - A GitHub Action (`.github/workflows/build-data.yml`) runs `scripts/build_dashboard.py`
-  on every push to those CSVs and every Monday. It downloads IMDb's public datasets,
+  on every push and every Monday. It downloads IMDb's public datasets,
   joins ratings, genres and runtimes to every play (including episodes Trakt had no
   IMDb ID for, matched by season and episode number), and commits
-  `data/dashboard.json` and `data/episodes.json` back to the repo.
+  `data/dashboard.json` and `data/episodes.json` back to the repo, then publishes the
+  site to GitHub Pages.
 - `index.html` loads those two files and draws everything. No server, no API keys.
 
 ## Updating the data
@@ -45,8 +46,8 @@ Trakt export (.zip) ──► scripts/import_trakt.py ──► data/*.csv ─�
    ```bash
    python scripts/import_trakt.py ~/Downloads/trakt-export-XXXX.zip
    ```
-3. Commit and push the changed `data/*.csv`. The Action rebuilds the dashboard data,
-   and GitHub Pages picks up the change within a minute or two.
+3. Commit and push the changed `data/*.csv`. The Action rebuilds the dashboard data
+   and republishes the site within a couple of minutes.
 
 To change the recommendations, edit `data/recommendations.csv` (`title`, `year`,
 `type` = `show` or `movie`, `because`, `why`; `imdb_id` is optional and only needed if
@@ -65,8 +66,10 @@ python -m http.server   # then open http://localhost:8000
 
 ## Enabling GitHub Pages (one-time setup)
 
-Settings → Pages → Build and deployment → Source: **Deploy from a branch** →
-Branch: `main` / `/(root)`.
+Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+The same workflow that rebuilds the data also publishes the site, on every push
+and every Monday (Actions tab → "Build data and deploy site" → Run workflow to
+publish on demand).
 
 ## Credits
 

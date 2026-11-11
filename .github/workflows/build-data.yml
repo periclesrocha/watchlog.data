@@ -1,24 +1,19 @@
-name: Build dashboard data from IMDb
+name: Build data and deploy site
 
 on:
   push:
     branches: [main]
-    paths:
-      - "data/watch_history.csv"
-      - "data/shows.csv"
-      - "data/my_ratings.csv"
-      - "data/recommendations.csv"
-      - "scripts/build_dashboard.py"
-      - ".github/workflows/build-data.yml"
   schedule:
     - cron: "17 9 * * 1" # every Monday, to pick up new IMDb ratings
   workflow_dispatch:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
-  group: build-data
+  group: build-and-deploy
   cancel-in-progress: true
 
 jobs:
@@ -33,7 +28,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build dashboard.json and episodes.json
+      - name: Build dashboard.json and episodes.json from IMDb
         run: python scripts/build_dashboard.py
 
       - name: Commit updated data
@@ -47,3 +42,26 @@ jobs:
             git commit -m "chore: rebuild dashboard data from IMDb [skip ci]"
             git push
           fi
+
+      - name: Package the site
+        run: |
+          mkdir -p _site/data
+          cp index.html README.md _site/
+          cp data/*.json data/*.csv _site/data/
+          touch _site/.nojekyll
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
