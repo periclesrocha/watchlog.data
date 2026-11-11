@@ -1,1 +1,77 @@
 imdb_id,title,year,type,answer,answered_at
+tt0111161,The Shawshank Redemption,1994,movie,not_seen,2026-11-11T22:43:40Z
+tt0468569,The Dark Knight,2008,movie,seen,2026-11-11T22:43:43Z
+tt0944947,Game of Thrones,2011,show,seen,2026-11-11T22:43:44Z
+tt0137523,Fight Club,1999,movie,seen,2026-11-11T22:43:45Z
+tt0109830,Forrest Gump,1994,movie,seen,2026-11-11T22:43:46Z
+tt1190634,The Boys,2019,show,not_seen,2026-11-11T22:43:48Z
+tt0068646,The Godfather,1972,movie,not_seen,2026-11-11T22:43:49Z
+tt0120737,The Lord of the Rings: The Fellowship of the Ring,2001,movie,seen,2026-11-11T22:43:51Z
+tt2442560,Peaky Blinders,2013,show,not_seen,2026-11-11T22:49:54Z
+tt0167260,The Lord of the Rings: The Return of the King,2003,movie,seen,2026-11-11T22:49:55Z
+tt0114369,Seven,1995,movie,seen,2026-11-11T22:49:56Z
+tt2356777,True Detective,2014,show,not_seen,2026-11-11T22:49:57Z
+tt1345836,The Dark Knight Rises,2012,movie,seen,2026-11-11T22:49:59Z
+tt0167261,The Lord of the Rings: The Two Towers,2002,movie,seen,2026-11-11T22:50:01Z
+tt2560140,Attack on Titan,2013,show,not_seen,2026-11-11T22:50:04Z
+tt1853728,Django Unchained,2012,movie,seen,2026-11-11T22:50:05Z
+tt0172495,Gladiator,2000,movie,seen,2026-11-11T22:50:07Z
+tt0499549,Avatar,2009,movie,seen,2026-11-11T22:50:11Z
+tt0141842,The Sopranos,1999,show,not_seen,2026-11-11T22:50:14Z
+tt0071562,The Godfather Part II,1974,movie,not_seen,2026-11-11T22:50:16Z
+tt4154796,Avengers: Endgame,2019,movie,seen,2026-11-11T22:50:17Z
+tt0412142,House,2004,show,not_seen,2026-11-11T22:50:19Z
+tt0120338,Titanic,1997,movie,seen,2026-11-11T22:50:22Z
+tt11198330,House of the Dragon,2022,show,not_seen,2026-11-11T22:50:24Z
+tt2861424,Rick and Morty,2013,show,not_seen,2026-11-11T22:50:32Z
+tt0993846,The Wolf of Wall Street,2013,movie,seen,2026-11-11T22:50:52Z
+tt0102926,The Silence of the Lambs,1991,movie,seen,2026-11-11T22:50:58Z
+tt10048342,The Queen's Gambit,2020,show,seen,2026-11-11T22:50:58Z
+tt0372784,Batman Begins,2005,movie,seen,2026-11-11T22:51:00Z
+tt7286456,Joker,2019,movie,not_seen,2026-11-11T22:51:03Z
+tt8111088,The Mandalorian,2019,show,seen,2026-11-11T22:51:04Z
+tt0120815,Saving Private Ryan,1998,movie,seen,2026-11-11T22:51:05Z
+tt0482571,The Prestige,2006,movie,not_seen,2026-11-11T22:51:07Z
+tt2306299,Vikings,2013,show,not_seen,2026-11-11T22:51:08Z
+tt0108052,Schindler's List,1993,movie,seen,2026-11-11T22:51:09Z
+tt0076759,Star Wars: Episode IV - A New Hope,1977,movie,seen,2026-11-11T22:51:10Z
+tt5180504,The Witcher,2019,show,not_seen,2026-11-11T22:51:11Z
+tt0120689,The Green Mile,1999,movie,seen,2026-11-11T22:51:13Z
+tt0407887,The Departed,2006,movie,seen,2026-11-11T22:51:15Z
+tt0185906,Band of Brothers,2001,show,seen,2026-11-11T22:51:16Z
+tt0080684,Star Wars: Episode V - The Empire Strikes Back,1980,movie,seen,2026-11-11T22:51:17Z
+tt0099685,GoodFellas,1990,movie,not_seen,2026-11-11T22:51:18Z
+tt0110413,Léon: The Professional,1994,movie,not_seen,2026-11-11T22:51:19Z
+tt0325980,Pirates of the Caribbean: The Curse of the Black Pearl,2003,movie,seen,2026-11-11T22:51:24Z
+tt0460681,Supernatural,2005,show,not_seen,2026-11-11T22:51:25Z
+tt0910970,WALL·E,2008,movie,seen,2026-11-11T22:51:26Z
+tt0266697,Kill Bill: Vol. 1,2003,movie,seen,2026-11-11T22:51:27Z
+tt13443470,Wednesday,2022,show,not_seen,2026-11-11T22:51:30Z
+tt0103064,Terminator 2: Judgment Day,1991,movie,seen,2026-11-11T22:51:31Z
+tt0169547,American Beauty,1999,movie,seen,2026-11-11T22:51:32Z
+tt0877057,Death Note,2006,show,not_seen,2026-11-11T22:51:33Z
+tt0110357,The Lion King,1994,movie,seen,2026-11-11T22:51:34Z
+tt1049413,Up,2009,movie,seen,2026-11-11T22:51:35Z
+tt9140554,Loki,2021,show,not_seen,2026-11-11T22:51:38Z
+tt0434409,V for Vendetta,2005,movie,not_seen,2026-11-11T22:51:39Z
+tt0081505,The Shining,1980,movie,not_seen,2026-11-11T22:51:40Z
+tt10986410,Ted Lasso,2020,show,not_seen,2026-11-11T22:51:41Z
+tt0266543,Finding Nemo,2003,movie,seen,2026-11-11T22:51:43Z
+tt0086190,Star Wars: Episode VI - Return of the Jedi,1983,movie,seen,2026-11-11T22:51:44Z
+tt1392190,Mad Max: Fury Road,2015,movie,not_seen,2026-11-11T22:51:54Z
+tt0114709,Toy Story,1995,movie,seen,2026-11-11T22:51:55Z
+tt2193021,Arrow,2012,show,not_seen,2026-11-11T22:51:56Z
+tt0107290,Jurassic Park,1993,movie,seen,2026-11-11T22:51:57Z
+tt0096697,The Simpsons,1989,show,not_seen,2026-11-11T22:52:00Z
+tt2267998,Gone Girl,2014,movie,not_seen,2026-11-11T22:52:02Z
+tt11126994,Arcane,2021,show,not_seen,2026-11-11T22:52:03Z
+tt0105236,Reservoir Dogs,1992,movie,seen,2026-11-11T22:52:06Z
+tt0167404,The Sixth Sense,1999,movie,seen,2026-11-11T22:52:07Z
+tt0417299,Avatar: The Last Airbender,2005,show,not_seen,2026-11-11T22:52:10Z
+tt0112573,Braveheart,1995,movie,seen,2026-11-11T22:52:12Z
+tt15398776,Oppenheimer,2023,movie,seen,2026-11-11T22:52:13Z
+tt0121955,South Park,1997,show,not_seen,2026-11-11T22:52:16Z
+tt1392170,The Hunger Games,2012,movie,seen,2026-11-11T22:52:17Z
+tt0198781,"Monsters, Inc.",2001,movie,seen,2026-11-11T22:52:18Z
+tt7631058,The Lord of the Rings: The Rings of Power,2022,show,seen,2026-11-11T22:52:19Z
+tt0078748,Alien,1979,movie,seen,2026-11-11T22:52:22Z
