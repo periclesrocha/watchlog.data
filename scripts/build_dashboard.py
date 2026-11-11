@@ -4,7 +4,8 @@
     python scripts/build_dashboard.py                 # downloads IMDb data into .imdb-cache/
     python scripts/build_dashboard.py --imdb-dir DIR  # use title.*.tsv.gz already in DIR
 
-Reads  data/watch_history.csv, data/shows.csv, data/my_ratings.csv, data/recommendations.csv
+Reads  data/watch_history.csv, data/shows.csv, data/my_ratings.csv, data/recommendations.csv,
+       data/also_watched.csv (titles seen outside the synced history, without dates)
 Writes data/dashboard.json  (plays, shows, movies, recommendations, pick-up-where-you-left-off)
        data/episodes.json   (every episode of every show you watched, with its IMDb rating)
 
@@ -92,6 +93,7 @@ def main():
     shows_csv = read_csv("shows.csv")
     my_ratings = read_csv("my_ratings.csv")
     recs_csv = read_csv("recommendations.csv")
+    also_csv = read_csv("also_watched.csv")
     if not plays:
         sys.exit("data/watch_history.csv is empty or missing")
 
@@ -136,7 +138,8 @@ def main():
         if not nn(r.get("imdb_id")):
             rec_keys.setdefault(norm(r["title"]), []).append(r)
     rec_candidates = collections.defaultdict(list)
-    wanted = show_ids | movie_ids | all_episode_ids | {r["imdb_id"] for r in recs_csv if nn(r.get("imdb_id"))}
+    also_ids = {r["imdb_id"] for r in also_csv if nn(r.get("imdb_id"))}
+    wanted = show_ids | movie_ids | all_episode_ids | also_ids | {r["imdb_id"] for r in recs_csv if nn(r.get("imdb_id"))}
     basics = {}
     log("Reading title.basics ...")
     for row in tsv(args.imdb_dir / "title.basics.tsv.gz"):
@@ -242,8 +245,19 @@ def main():
         out_my.append({"type": r["type"], "title": r["title"], "year": to_int(r["year"]), "id": r["imdb_id"] or None,
                        "mine": int(r["rating"]), "imdb": i["rating"]})
 
+    # ---- titles watched outside the synced history ----
+    out_also = []
+    for r in also_csv:
+        t = nn(r.get("imdb_id"))
+        if t and t in show_ids | movie_ids:
+            continue  # it has since shown up in the synced history
+        i = info(t) if t else {"rating": None, "votes": None, "genres": []}
+        out_also.append({"title": r["title"], "year": to_int(r.get("year")), "type": r["type"], "id": t,
+                         "note": r.get("note") or "", "rating": i["rating"], "votes": i["votes"], "genres": i["genres"]})
+
     # ---- recommendations ----
-    watched_ids = show_ids | movie_ids
+    watched_ids = show_ids | movie_ids | also_ids
+    watched_titles = {norm(r["title"]) for r in also_csv}
     out_recs, problems = [], []
     for r in recs_csv:
         t = nn(r.get("imdb_id"))
@@ -260,7 +274,7 @@ def main():
                 basics[t] = cands[0]
         if not t:
             problems.append(f"not found on IMDb: {r['title']} ({r.get('year')})")
-        if t and t in watched_ids:
+        if (t and t in watched_ids) or norm(r["title"]) in watched_titles:
             problems.append(f"already watched, skipped: {r['title']}")
             continue
         i = info(t) if t else {"rating": None, "votes": None, "genres": [], "runtime": None, "startYear": None, "endYear": None}
@@ -285,7 +299,7 @@ def main():
     dashboard = {
         "generatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "plays": out_plays, "shows": out_shows, "movies": out_movies, "myRatings": out_my,
-        "recommendations": out_recs,
+        "recommendations": out_recs, "alsoWatched": out_also,
         "continueWatching": [{"title": s["title"], "id": s["id"], "watched": s["watched"], "aired": s["aired"],
                               "last": s["last"], "rating": s["rating"], "nextUp": s["nextUp"]} for s in cont],
     }

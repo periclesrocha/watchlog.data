@@ -222,6 +222,7 @@
     </table>
   </div>
   <p class="note" id="history-note"></p>
+  <p class="note" id="also-watched"></p>
 </section>
 
 <section class="section"><h2>Additional useless charts</h2></section>
@@ -470,6 +471,12 @@ async function main() {
       ? `Showing the latest ${shown.length} of ${rows.length.toLocaleString()} plays. Search to narrow it down.`
       : `${rows.length.toLocaleString()} plays.`;
   };
+  const also = data.alsoWatched || [];
+  if (also.length) {
+    document.getElementById('also-watched').innerHTML = 'Also watched, outside the synced history: ' + also.map(a =>
+      `${a.id ? `<a href="${imdbUrl(a.id)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>` : escapeHtml(a.title)}` +
+      `${a.rating != null ? ` (&#9733; ${a.rating.toFixed(1)})` : ''}`).join(', ') + '.';
+  }
   search.addEventListener('input', renderHistory);
   typeSel.addEventListener('change', renderHistory);
   renderHistory();

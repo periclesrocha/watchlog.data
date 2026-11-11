@@ -49,6 +49,10 @@ Trakt export (.zip) ──► scripts/import_trakt.py ──► data/*.csv ─�
 3. Commit and push the changed `data/*.csv`. The Action rebuilds the dashboard data
    and republishes the site within a couple of minutes.
 
+Titles watched somewhere that didn't sync (no dates) go in `data/also_watched.csv`
+(`title`, `year`, `type`, `imdb_id`, `note`). They're listed under the history and
+never recommended.
+
 To change the recommendations, edit `data/recommendations.csv` (`title`, `year`,
 `type` = `show` or `movie`, `because`, `why`; `imdb_id` is optional and only needed if
 the title match picks the wrong one) and push. Anything already in the history is
