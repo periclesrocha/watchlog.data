@@ -1,0 +1,12 @@
+# IMDb dataset downloads (large, re-downloaded by the build)
+.imdb-cache/
+
+# Titles left out of the dashboard; kept on your computer only
+exclude.txt
+
+# Raw Trakt exports
+trakt-export*.zip
+trakt-export*/
+
+__pycache__/
+.DS_Store

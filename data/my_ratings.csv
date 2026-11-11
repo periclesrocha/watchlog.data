@@ -1,0 +1,62 @@
+type,title,year,imdb_id,rating,rated_at
+movie,About Time,2013,tt2194499,10,2016-02-13
+movie,Amadeus,1984,tt0086879,10,2012-02-26
+movie,American History X,1998,tt0120586,10,2016-07-29
+movie,Austin Powers in Goldmember,2002,tt0295178,10,2025-10-07
+movie,Austin Powers: International Man of Mystery,1997,tt0118655,10,2025-10-05
+movie,Austin Powers: The Spy Who Shagged Me,1999,tt0145660,10,2025-10-05
+movie,Back to the Future Part III,1990,tt0099088,10,2015-02-19
+show,Better Call Saul,2015,tt3032476,10,2015-02-15
+show,Black Mirror,2011,tt2085059,10,2015-11-06
+show,Breaking Bad,2008,tt0903747,10,2015-08-26
+movie,Bruce Almighty,2003,tt0315327,10,2013-03-30
+movie,Contact,1997,tt0118884,10,2015-12-23
+movie,David Blaine: Real or Magic,2013,tt3345310,10,2016-11-20
+show,Dexter,2006,tt0773262,10,2014-10-09
+movie,Elysium,2013,tt1535108,10,2015-08-26
+movie,Ferris Bueller's Day Off,1986,tt0091042,10,2013-03-30
+show,Fringe,2008,tt1119644,10,2015-05-25
+show,Homeland,2011,tt1796960,10,2015-06-11
+show,House of Cards,2013,tt1856010,10,2015-03-10
+movie,Jackass 4.5,2022,tt18258584,10,2023-12-16
+show,Orange Is the New Black,2013,tt2372162,10,2015-08-26
+movie,Pretty Woman,1990,tt0100405,10,2013-03-30
+movie,Pulp Fiction,1994,tt0110912,10,2015-08-16
+movie,Senna,2010,tt1424432,10,2016-08-14
+show,Stranger Things,2016,tt4574334,10,2016-07-28
+show,Suits,2011,tt1632701,10,2015-02-15
+show,The Big Bang Theory,2007,tt0898266,10,2014-12-08
+movie,The Matrix,1999,tt0133093,10,2013-03-30
+movie,The Matrix Reloaded,2003,tt0234215,10,2013-03-30
+movie,The Terminator,1984,tt0088247,10,2015-06-19
+movie,The Truman Show,1998,tt0120382,10,2012-02-28
+movie,The Usual Suspects,1995,tt0114814,10,2014-09-20
+show,The Walking Dead,2010,tt1520211,10,2015-08-26
+movie,Transformers,2007,tt0418279,10,2013-03-30
+movie,Tropic Thunder,2008,tt0942385,10,2013-03-30
+movie,Vanilla Sky,2001,tt0259711,10,2013-03-30
+movie,What Women Want,2000,tt0207201,10,2013-03-30
+movie,Anchorman: The Legend of Ron Burgundy,2004,tt0357413,7,2014-09-21
+movie,Being John Malkovich,1999,tt0120601,7,2013-03-30
+movie,Cube,1998,tt0123755,7,2013-03-30
+movie,Due Date,2010,tt1231583,7,2015-11-07
+movie,Déjà Vu,2006,tt0453467,7,2013-03-30
+movie,Just Like Heaven,2005,tt0425123,7,2013-03-30
+movie,Knowing,2009,tt0448011,7,2013-03-30
+show,Narcos,2015,tt2707408,7,2016-02-17
+movie,Ocean's Thirteen,2007,tt0496806,7,2013-03-30
+show,Sense8,2015,tt2431438,7,2015-08-26
+movie,Taxi Driver,1976,tt0075314,7,2016-07-03
+movie,Terminator 3: Rise of the Machines,2003,tt0181852,7,2015-06-19
+movie,The Butterfly Effect,2004,tt0289879,7,2013-03-30
+movie,The Forgotten,2004,tt0356618,7,2013-03-30
+show,The Returned,2015,tt3230780,7,2015-08-26
+movie,The Twilight Saga: New Moon,2009,tt1259571,7,2012-03-01
+movie,Twilight,2008,tt1099212,7,2012-02-29
+movie,Warm Bodies,2013,tt1588173,7,2016-08-14
+show,White Rabbit Project,2016,tt6048644,7,2017-01-06
+movie,Ali G Indahouse,2002,tt0284837,3,2016-08-13
+show,Firefly,2002,tt0303461,3,2015-08-26
+movie,Hot Girls Wanted,2015,tt4382552,3,2015-06-11
+show,The Principles of Pleasure,2022,tt18299058,3,2022-08-08
+show,Under the Dome,2013,tt1553656,3,2015-08-26

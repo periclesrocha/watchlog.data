@@ -1,0 +1,49 @@
+name: Build dashboard data from IMDb
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/watch_history.csv"
+      - "data/shows.csv"
+      - "data/my_ratings.csv"
+      - "data/recommendations.csv"
+      - "scripts/build_dashboard.py"
+      - ".github/workflows/build-data.yml"
+  schedule:
+    - cron: "17 9 * * 1" # every Monday, to pick up new IMDb ratings
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-data
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build dashboard.json and episodes.json
+        run: python scripts/build_dashboard.py
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/dashboard.json data/episodes.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: rebuild dashboard data from IMDb [skip ci]"
+            git push
+          fi

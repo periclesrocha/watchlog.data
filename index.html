@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Watchlog &mdash; Watch History Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23171f30' stroke='%2358d1c9' stroke-width='4'/%3E%3Cpath d='M26 20 L46 32 L26 44 Z' fill='%237c9bff'/%3E%3C/svg%3E" />
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+<style>
+  :root {
+    --bg: #0f1523;
+    --card-bg: #171f30;
+    --card-border: #262f45;
+    --text: #e7ebf3;
+    --muted: #9aa5bd;
+    --accent: #7c9bff;
+    --accent2: #58d1c9;
+    --tv: #3987e5;
+    --movie: #d95926;
+    --star: #f5c518;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 10% -10%, #1b2740 0%, var(--bg) 55%);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  a { color: var(--accent2); }
+  header { padding: 32px 24px 12px; text-align: center; }
+  .title-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .logo { width: 48px; height: 48px; flex-shrink: 0; }
+  header h1 { margin: 0 0 6px; font-size: 2rem; letter-spacing: 0.5px; }
+  header p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  nav.jump { text-align: center; padding: 6px 24px 0; font-size: 0.9rem; }
+  nav.jump a { margin: 0 8px; color: var(--accent2); }
+  #error {
+    display: none; max-width: 700px; margin: 16px auto; padding: 14px 18px;
+    background: #3a1f24; border: 1px solid #7a3540; border-radius: 10px; color: #ffb4bd; text-align: center;
+  }
+  .kpis { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; padding: 18px 24px 28px; }
+  .kpi {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px;
+    padding: 18px 26px; min-width: 150px; text-align: center;
+  }
+  .kpi .value { font-size: 1.9rem; font-weight: 700; color: var(--accent2); }
+  .kpi .label { color: var(--muted); font-size: 0.8rem; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .section { max-width: 1500px; margin: 0 auto; padding: 0 24px 32px; }
+  .section-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .section-header h2 { margin: 0; font-size: 1.25rem; }
+  .section-header .hint { color: var(--muted); font-size: 0.85rem; }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px;
+    padding: 0 24px 40px; max-width: 1500px; margin: 0 auto;
+  }
+  .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 16px 18px 10px; }
+  .card h2 { font-size: 1rem; margin: 0 0 10px; font-weight: 600; }
+  .card h2 .subtitle { color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+  .card .chart { width: 100%; min-height: 260px; }
+  .card.wide { grid-column: 1 / -1; }
+
+  /* recommendations */
+  .tabs { display: inline-flex; gap: 6px; }
+  .tabs button {
+    background: var(--card-bg); color: var(--muted); border: 1px solid var(--card-border);
+    padding: 6px 14px; border-radius: 999px; font: inherit; font-size: 0.85rem; cursor: pointer;
+  }
+  .tabs button.active { color: var(--text); border-color: var(--accent2); }
+  .recs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  .rec {
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .rec .top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .rec h3 { margin: 0; font-size: 1.02rem; }
+  .rec h3 a { color: var(--text); text-decoration: none; }
+  .rec h3 a:hover { color: var(--accent2); }
+  .rec .year { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
+  .rating { white-space: nowrap; font-weight: 700; font-size: 0.95rem; }
+  .rating .star { color: var(--star); }
+  .rating .votes { color: var(--muted); font-weight: 400; font-size: 0.75rem; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; }
+  .badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--card-border); color: var(--muted); }
+  .badge.show { color: #a9cbf5; border-color: #2a4a75; }
+  .badge.movie { color: #f2b294; border-color: #6b3420; }
+  .rec .why { margin: 0; font-size: 0.9rem; color: #c7cfe2; }
+  .rec .because { margin: 0; font-size: 0.8rem; color: var(--muted); }
+
+  /* tables */
+  .table-wrap { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; overflow: auto; max-height: 600px; }
+  table.data { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  table.data thead th {
+    position: sticky; top: 0; background: #1d263a; color: var(--muted); text-align: left; padding: 10px 16px;
+    font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.04em; border-bottom: 1px solid var(--card-border);
+  }
+  table.data tbody td { padding: 9px 16px; border-bottom: 1px solid var(--card-border); vertical-align: top; }
+  table.data tbody tr:last-child td { border-bottom: none; }
+  table.data tbody tr:hover { background: #1c2438; }
+  table.data td.num { text-align: right; white-space: nowrap; }
+  table.data td.muted { color: var(--muted); white-space: nowrap; }
+  .progress { position: relative; height: 8px; width: 120px; background: #26304a; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
+  .progress span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent2); border-radius: 4px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .controls input, .controls select {
+    background: var(--card-bg); color: var(--text); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 8px 12px; font: inherit; font-size: 0.9rem;
+  }
+  .controls input { min-width: 240px; }
+  .note { color: var(--muted); font-size: 0.8rem; margin: 8px 2px 0; }
+  .download-link {
+    color: var(--accent2); text-decoration: none; font-size: 0.9rem; border: 1px solid var(--card-border);
+    background: var(--card-bg); padding: 8px 14px; border-radius: 10px; white-space: nowrap;
+  }
+  .download-link:hover { border-color: var(--accent2); }
+  #vg-tooltip-element.vg-tooltip { font-family: inherit; }
+  footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 8px 24px 40px; line-height: 1.6; }
+  footer a { color: var(--accent); }
+  @media (max-width: 520px) {
+    .grid { grid-template-columns: 1fr; }
+    .controls input { min-width: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="title-row">
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#171f30" stroke="#58d1c9" stroke-width="4"/><path d="M26 20 L46 32 L26 44 Z" fill="#7c9bff"/></svg>
+    <h1>Watchlog</h1>
+  </div>
+  <p>Everything I've streamed since 2012, with IMDb ratings for every show, movie and episode</p>
+</header>
+<nav class="jump">
+  <a href="#recommendations">What to watch next</a> &middot;
+  <a href="#continue">Pick up where you left off</a> &middot;
+  <a href="#episodes">Episode ratings</a> &middot;
+  <a href="#history">Full history</a>
+</nav>
+<div id="error"></div>
+
+<div class="kpis" id="kpis"></div>
+
+<section class="section" id="recommendations">
+  <div class="section-header">
+    <h2>What to watch next</h2>
+    <div class="tabs" id="rec-tabs">
+      <button data-filter="all" class="active">All</button>
+      <button data-filter="show">Shows</button>
+      <button data-filter="movie">Movies</button>
+    </div>
+  </div>
+  <div class="recs" id="recs"></div>
+</section>
+
+<section class="section" id="continue">
+  <div class="section-header">
+    <h2>Pick up where you left off</h2>
+    <span class="hint">Shows rated 7+ on IMDb that you haven't finished, most recent first</span>
+  </div>
+  <div class="table-wrap">
+    <table class="data" id="continue-table">
+      <thead><tr><th>Show</th><th>Progress</th><th>Next episode</th><th>IMDb</th><th>Last watched</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<div class="grid">
+  <div class="card"><h2>Hours watched per year</h2><div class="chart" id="chart-hours-year"></div></div>
+  <div class="card"><h2>Most-watched shows <span class="subtitle">(episodes)</span></h2><div class="chart" id="chart-top-shows"></div></div>
+  <div class="card"><h2>Hours by genre <span class="subtitle">(IMDb genres; a title can count in several)</span></h2><div class="chart" id="chart-genre"></div></div>
+
+  <div class="card"><h2>IMDb rating of what I watched</h2><div class="chart" id="chart-rating-dist"></div></div>
+  <div class="card"><h2>My rating vs. IMDb</h2><div class="chart" id="chart-mine-vs-imdb"></div></div>
+  <div class="card"><h2>Movies by release decade</h2><div class="chart" id="chart-decade"></div></div>
+</div>
+
+<section class="section" id="episodes">
+  <div class="section-header">
+    <h2>Episode ratings</h2>
+    <div class="controls"><label for="show-select" class="hint">Show</label><select id="show-select"></select></div>
+  </div>
+</section>
+<div class="grid">
+  <div class="card wide"><h2 id="heatmap-title">IMDb rating of every episode <span class="subtitle">(outlined = watched)</span></h2><div class="chart" id="chart-episode-heatmap"></div></div>
+  <div class="card wide"><h2>Rating across the series <span class="subtitle">(filled dots = watched)</span></h2><div class="chart" id="chart-episode-line"></div></div>
+</div>
+
+<section class="section">
+  <div class="section-header">
+    <h2>Best episodes I've watched</h2>
+    <span class="hint">Highest IMDb rating, at least 1,000 votes</span>
+  </div>
+  <div class="table-wrap">
+    <table class="data" id="best-episodes">
+      <thead><tr><th>#</th><th>Show</th><th>Episode</th><th>IMDb</th><th>Watched</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section" id="history">
+  <div class="section-header">
+    <h2>Full history</h2>
+    <div class="controls">
+      <input id="history-search" type="search" placeholder="Search title or episode..." />
+      <select id="history-type">
+        <option value="all">Shows and movies</option>
+        <option value="episode">Shows only</option>
+        <option value="movie">Movies only</option>
+      </select>
+      <a class="download-link" href="data/watch_history.csv" download>Download CSV</a>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="data" id="history-table">
+      <thead><tr><th>Watched</th><th>Title</th><th>Episode</th><th>IMDb</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p class="note" id="history-note"></p>
+</section>
+
+<section class="section"><h2>Additional useless charts</h2></section>
+<div class="grid">
+  <div class="card"><h2>When I watch <span class="subtitle">(plays by weekday and hour)</span></h2><div class="chart" id="chart-when"></div></div>
+  <div class="card"><h2>Hours watched by month</h2><div class="chart" id="chart-month-heat"></div></div>
+  <div class="card"><h2>Biggest binge days <span class="subtitle">(episodes in one day)</span></h2><div class="chart" id="chart-binge"></div></div>
+</div>
+
+<footer>
+  <span id="meta"></span><br />
+  Watch history from <a href="https://trakt.tv" target="_blank" rel="noopener">Trakt</a> &middot;
+  ratings rebuilt weekly by GitHub Actions &middot;
+  <a href="https://github.com/periclesrocha/watchlog.data" target="_blank" rel="noopener">source on GitHub</a><br />
+  Information courtesy of IMDb (<a href="https://www.imdb.com" target="_blank" rel="noopener">https://www.imdb.com</a>). Used with permission.
+</footer>
+
+<script>
+const C = { tv: '#3987e5', movie: '#d95926', accent: '#58d1c9', accentBlue: '#7c9bff', muted: '#9aa5bd', grid: '#26304a' };
+const SEQ = ['#184f95', '#1c5cab', '#256abf', '#2a78d6', '#3987e5', '#5598e7', '#6da7ec', '#86b6ef', '#9ec5f4', '#cde2fb'];
+const BASE_CONFIG = {
+  background: null,
+  config: {
+    view: { stroke: null },
+    axis: { labelColor: '#c7cfe2', titleColor: '#c7cfe2', gridColor: C.grid, domainColor: '#3a4665', tickColor: '#3a4665', labelFontSize: 11, titleFontWeight: 500 },
+    legend: { labelColor: '#c7cfe2', titleColor: '#c7cfe2', orient: 'top', titleFontWeight: 500 },
+    mark: { color: C.accentBlue },
+    bar: { cornerRadiusEnd: 4 },
+    title: { color: '#e7ebf3' }
+  }
+};
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function embed(id, spec) {
+  return vegaEmbed('#' + id, Object.assign({ width: 'container', height: 260 }, spec, BASE_CONFIG), {
+    actions: false, renderer: 'svg', tooltip: { theme: 'dark' }
+  }).catch(err => console.error('Vega-Lite error in #' + id + ': ' + err.message));
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+const imdbUrl = id => 'https://www.imdb.com/title/' + encodeURIComponent(id) + '/';
+const fmtVotes = v => v == null ? '' : v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? Math.round(v / 1e3) + 'K' : String(v);
+const pad = n => String(n).padStart(2, '0');
+const epCode = (s, e) => (s != null && e != null) ? `S${pad(s)}E${pad(e)}` : '';
+function ratingHtml(r, v) {
+  if (r == null) return '<span class="rating votes">no rating</span>';
+  return `<span class="rating"><span class="star">&#9733;</span> ${r.toFixed(1)}${v ? ` <span class="votes">(${fmtVotes(v)})</span>` : ''}</span>`;
+}
+function fmtDate(d) {
+  if (!d) return 'date unknown';
+  const dt = new Date(d);
+  return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+async function getJson(path) {
+  const res = await fetch(path, { cache: 'no-store' });
+  if (!res.ok) throw new Error(path + ': HTTP ' + res.status);
+  return res.json();
+}
+
+let EPISODES = null;
+
+async function main() {
+  let data;
+  try {
+    data = await getJson('data/dashboard.json');
+  } catch (err) {
+    const box = document.getElementById('error');
+    box.style.display = 'block';
+    box.textContent = 'Could not load data/dashboard.json (' + err.message + '). The GitHub Action builds it after each push; check the Actions tab.';
+    return;
+  }
+  const { plays, shows, movies, myRatings, recommendations, continueWatching } = data;
+  const dated = plays.filter(p => p.d);
+  const eps = plays.filter(p => p.type === 'episode');
+
+  // ---- KPIs ----
+  const minutes = plays.reduce((s, p) => s + (p.min || 0), 0);
+  const ratedPlays = plays.filter(p => p.r != null);
+  const avgImdb = ratedPlays.reduce((s, p) => s + p.r, 0) / (ratedPlays.length || 1);
+  const years = dated.map(p => +p.d.slice(0, 4));
+  const kpis = [
+    { label: 'Hours watched', value: Math.round(minutes / 60).toLocaleString() },
+    { label: 'Episodes', value: eps.length.toLocaleString() },
+    { label: 'Shows', value: shows.length },
+    { label: 'Movies', value: movies.length },
+    { label: 'Avg IMDb rating', value: avgImdb.toFixed(1) },
+    { label: 'Years', value: years.length ? (Math.max(...years) - Math.min(...years) + 1) : '-' },
+  ];
+  document.getElementById('kpis').innerHTML = kpis.map(k =>
+    `<div class="kpi"><div class="value">${k.value}</div><div class="label">${k.label}</div></div>`).join('');
+  const gen = new Date(data.generatedAt);
+  document.getElementById('meta').textContent =
+    `${plays.length.toLocaleString()} plays tracked · IMDb ratings as of ${gen.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`;
+
+  renderRecommendations(recommendations);
+  renderContinue(continueWatching);
+
+  // ---- Hours watched per year (TV vs movies) ----
+  const hy = new Map();
+  for (const p of dated) {
+    const k = p.d.slice(0, 4) + '|' + (p.type === 'movie' ? 'Movies' : 'TV');
+    hy.set(k, (hy.get(k) || 0) + (p.min || 0) / 60);
+  }
+  embed('chart-hours-year', {
+    data: { values: [...hy].map(([k, v]) => { const [year, kind] = k.split('|'); return { year, kind, hours: Math.round(v) }; }) },
+    mark: { type: 'bar', stroke: '#171f30', strokeWidth: 2 },
+    encoding: {
+      x: { field: 'year', type: 'ordinal', title: null, axis: { labelAngle: 0, labelExpr: "'\\'' + slice(datum.label, 2)" } },
+      y: { field: 'hours', type: 'quantitative', title: 'Hours', stack: true },
+      color: { field: 'kind', type: 'nominal', title: null, scale: { domain: ['TV', 'Movies'], range: [C.tv, C.movie] } },
+      order: { field: 'kind', sort: 'descending' },
+      tooltip: [{ field: 'year', title: 'Year' }, { field: 'kind', title: 'Type' }, { field: 'hours', title: 'Hours', format: ',' }]
+    }
+  });
+
+  // ---- Most-watched shows ----
+  const topShows = shows.slice().sort((a, b) => b.watched - a.watched).slice(0, 15)
+    .map(s => ({ title: s.title, episodes: s.watched, rating: s.rating }));
+  embed('chart-top-shows', {
+    data: { values: topShows },
+    height: topShows.length * 22,
+    layer: [
+      { mark: { type: 'bar', color: C.tv },
+        encoding: {
+          y: { field: 'title', type: 'nominal', title: null, sort: topShows.map(d => d.title) },
+          x: { field: 'episodes', type: 'quantitative', title: 'Episodes watched' },
+          tooltip: [{ field: 'title', title: 'Show' }, { field: 'episodes', title: 'Episodes' }, { field: 'rating', title: 'IMDb', format: '.1f' }]
+        } },
+      { mark: { type: 'text', align: 'left', dx: 4, color: '#c7cfe2', fontSize: 11 },
+        encoding: { y: { field: 'title', type: 'nominal', sort: topShows.map(d => d.title) }, x: { field: 'episodes', type: 'quantitative' }, text: { field: 'episodes' } } }
+    ]
+  });
+
+  // ---- Hours by genre ----
+  const ratingInfo = new Map();
+  for (const s of shows) if (s.id) ratingInfo.set(s.id, s.genres || []);
+  for (const m of movies) if (m.id) ratingInfo.set(m.id, m.genres || []);
+  const gh = new Map();
+  for (const p of plays) {
+    const g = ratingInfo.get(p.type === 'movie' ? p.id : p.sid) || [];
+    for (const name of g) gh.set(name, (gh.get(name) || 0) + (p.min || 0) / 60);
+  }
+  const genreData = [...gh].map(([genre, h]) => ({ genre, hours: Math.round(h) })).sort((a, b) => b.hours - a.hours).slice(0, 14);
+  embed('chart-genre', {
+    data: { values: genreData },
+    height: genreData.length * 22,
+    mark: { type: 'bar', color: C.accent },
+    encoding: {
+      y: { field: 'genre', type: 'nominal', title: null, sort: '-x' },
+      x: { field: 'hours', type: 'quantitative', title: 'Hours' },
+      tooltip: [{ field: 'genre', title: 'Genre' }, { field: 'hours', title: 'Hours', format: ',' }]
+    }
+  });
+
+  // ---- IMDb rating distribution ----
+  embed('chart-rating-dist', {
+    data: { values: ratedPlays.map(p => ({ r: p.r, kind: p.type === 'movie' ? 'Movies' : 'TV episodes' })) },
+    mark: { type: 'bar', stroke: '#171f30', strokeWidth: 2 },
+    encoding: {
+      x: { field: 'r', type: 'quantitative', bin: { step: 0.5, extent: [1, 10] }, title: 'IMDb rating' },
+      y: { aggregate: 'count', title: 'Plays', stack: true },
+      color: { field: 'kind', type: 'nominal', title: null, scale: { domain: ['TV episodes', 'Movies'], range: [C.tv, C.movie] } },
+      tooltip: [{ field: 'kind', title: 'Type' }, { field: 'r', bin: { step: 0.5, extent: [1, 10] }, title: 'Rating' }, { aggregate: 'count', title: 'Plays' }]
+    }
+  });
+
+  // ---- My rating vs IMDb ----
+  const label = { 3: 'Didn’t like it', 7: 'Liked it', 10: 'Loved it' };
+  const mine = myRatings.filter(r => r.imdb != null).map(r => ({
+    title: r.title, imdb: r.imdb, mine: label[r.mine] || String(r.mine), kind: r.type === 'movie' ? 'Movies' : 'TV'
+  }));
+  embed('chart-mine-vs-imdb', {
+    data: { values: mine },
+    mark: { type: 'circle', size: 110, opacity: 0.85, stroke: '#171f30', strokeWidth: 2 },
+    encoding: {
+      x: { field: 'imdb', type: 'quantitative', title: 'IMDb rating', scale: { zero: false } },
+      y: { field: 'mine', type: 'nominal', title: null, sort: ['Loved it', 'Liked it', 'Didn’t like it'] },
+      yOffset: { field: 'kind', type: 'nominal' },
+      color: { field: 'kind', type: 'nominal', title: null, scale: { domain: ['TV', 'Movies'], range: [C.tv, C.movie] } },
+      tooltip: [{ field: 'title', title: 'Title' }, { field: 'mine', title: 'My rating' }, { field: 'imdb', title: 'IMDb', format: '.1f' }]
+    }
+  });
+
+  // ---- Movies by decade ----
+  const decades = new Map();
+  for (const m of movies) if (m.year) { const d = Math.floor(m.year / 10) * 10; decades.set(d, (decades.get(d) || 0) + 1); }
+  embed('chart-decade', {
+    data: { values: [...decades].sort((a, b) => a[0] - b[0]).map(([d, n]) => ({ decade: d + 's', movies: n })) },
+    mark: { type: 'bar', color: C.movie },
+    encoding: {
+      x: { field: 'decade', type: 'nominal', title: null, sort: null, axis: { labelAngle: 0 } },
+      y: { field: 'movies', type: 'quantitative', title: 'Movies' },
+      tooltip: [{ field: 'decade', title: 'Decade' }, { field: 'movies', title: 'Movies' }]
+    }
+  });
+
+  // ---- Episode explorer ----
+  const select = document.getElementById('show-select');
+  const showOptions = shows.filter(s => s.id).sort((a, b) => b.plays - a.plays);
+  select.innerHTML = showOptions.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.title)} (${s.watched} watched)</option>`).join('');
+  select.addEventListener('change', () => renderEpisodes(select.value, shows));
+  try {
+    EPISODES = await getJson('data/episodes.json');
+  } catch (err) {
+    EPISODES = {};
+    console.error(err);
+  }
+  if (showOptions.length) renderEpisodes(showOptions[0].id, shows);
+
+  // ---- Best episodes watched ----
+  const seen = new Set();
+  const best = eps.filter(p => p.r != null && (p.v || 0) >= 1000)
+    .sort((a, b) => b.r - a.r || (b.v || 0) - (a.v || 0))
+    .filter(p => { const k = p.id || (p.title + p.s + p.e); if (seen.has(k)) return false; seen.add(k); return true; })
+    .slice(0, 20);
+  document.querySelector('#best-episodes tbody').innerHTML = best.map((p, i) => `
+    <tr>
+      <td class="muted">${i + 1}</td>
+      <td>${escapeHtml(p.title)}</td>
+      <td>${p.id ? `<a href="${imdbUrl(p.id)}" target="_blank" rel="noopener">` : ''}${epCode(p.s, p.e)} ${escapeHtml(p.et || '')}${p.id ? '</a>' : ''}</td>
+      <td class="num">${ratingHtml(p.r, p.v)}</td>
+      <td class="muted">${fmtDate(p.d)}</td>
+    </tr>`).join('');
+
+  // ---- Full history table ----
+  const search = document.getElementById('history-search');
+  const typeSel = document.getElementById('history-type');
+  const renderHistory = () => {
+    const q = search.value.trim().toLowerCase();
+    const t = typeSel.value;
+    const rows = plays.filter(p => (t === 'all' || p.type === t) &&
+      (!q || p.title.toLowerCase().includes(q) || (p.et || '').toLowerCase().includes(q)));
+    const shown = rows.slice(0, 400);
+    document.querySelector('#history-table tbody').innerHTML = shown.map(p => `
+      <tr>
+        <td class="muted">${fmtDate(p.d)}</td>
+        <td>${escapeHtml(p.title)}${p.type === 'movie' && p.year ? ` <span class="muted">(${p.year})</span>` : ''}</td>
+        <td>${p.type === 'episode' ? `${epCode(p.s, p.e)} ${escapeHtml(p.et || '')}` : '<span class="badge movie">Movie</span>'}</td>
+        <td class="num">${p.id ? `<a href="${imdbUrl(p.id)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">${ratingHtml(p.r, p.v)}</a>` : ratingHtml(p.r, p.v)}</td>
+      </tr>`).join('');
+    document.getElementById('history-note').textContent = rows.length > shown.length
+      ? `Showing the latest ${shown.length} of ${rows.length.toLocaleString()} plays. Search to narrow it down.`
+      : `${rows.length.toLocaleString()} plays.`;
+  };
+  search.addEventListener('input', renderHistory);
+  typeSel.addEventListener('change', renderHistory);
+  renderHistory();
+
+  // ==================== Additional useless charts ====================
+
+  // ---- When I watch: weekday x hour ----
+  const wh = new Map();
+  for (const p of dated) {
+    const dt = new Date(p.d);
+    const wd = (dt.getDay() + 6) % 7;
+    const k = wd + '|' + dt.getHours();
+    wh.set(k, (wh.get(k) || 0) + 1);
+  }
+  embed('chart-when', {
+    data: { values: [...wh].map(([k, n]) => { const [wd, h] = k.split('|').map(Number); return { day: WEEKDAYS[wd], hour: h, plays: n }; }) },
+    mark: { type: 'rect', stroke: '#171f30', strokeWidth: 2, cornerRadius: 2 },
+    encoding: {
+      x: { field: 'hour', type: 'ordinal', title: 'Hour of day', scale: { domain: [...Array(24).keys()] }, axis: { labelAngle: 0, values: [0, 3, 6, 9, 12, 15, 18, 21] } },
+      y: { field: 'day', type: 'ordinal', title: null, sort: WEEKDAYS },
+      color: { field: 'plays', type: 'quantitative', title: 'Plays', scale: { range: [SEQ[0], SEQ[9]] } },
+      tooltip: [{ field: 'day', title: 'Day' }, { field: 'hour', title: 'Hour' }, { field: 'plays', title: 'Plays' }]
+    }
+  });
+
+  // ---- Hours by month (calendar heatmap) ----
+  const hm = new Map();
+  for (const p of dated) { const k = p.d.slice(0, 7); hm.set(k, (hm.get(k) || 0) + (p.min || 0) / 60); }
+  embed('chart-month-heat', {
+    data: { values: [...hm].map(([k, h]) => ({ year: k.slice(0, 4), month: MONTHS[+k.slice(5, 7) - 1], hours: Math.round(h) })) },
+    mark: { type: 'rect', stroke: '#171f30', strokeWidth: 2, cornerRadius: 2 },
+    encoding: {
+      x: { field: 'month', type: 'ordinal', title: null, sort: MONTHS, axis: { labelAngle: 0 } },
+      y: { field: 'year', type: 'ordinal', title: null },
+      color: { field: 'hours', type: 'quantitative', title: 'Hours', scale: { range: [SEQ[0], SEQ[9]] } },
+      tooltip: [{ field: 'month', title: 'Month' }, { field: 'year', title: 'Year' }, { field: 'hours', title: 'Hours' }]
+    }
+  });
+
+  // ---- Biggest binge days ----
+  const days = new Map();
+  for (const p of dated) if (p.type === 'episode') {
+    const k = p.d.slice(0, 10);
+    const cur = days.get(k) || { day: k, episodes: 0, shows: new Map() };
+    cur.episodes++; cur.shows.set(p.title, (cur.shows.get(p.title) || 0) + 1);
+    days.set(k, cur);
+  }
+  const binge = [...days.values()].sort((a, b) => b.episodes - a.episodes).slice(0, 10).map(d => ({
+    day: fmtDate(d.day + 'T12:00'), episodes: d.episodes,
+    show: [...d.shows].sort((a, b) => b[1] - a[1])[0][0]
+  }));
+  embed('chart-binge', {
+    data: { values: binge },
+    height: binge.length * 24,
+    layer: [
+      { mark: { type: 'bar', color: C.accentBlue },
+        encoding: {
+          y: { field: 'day', type: 'nominal', title: null, sort: binge.map(d => d.day) },
+          x: { field: 'episodes', type: 'quantitative', title: 'Episodes', scale: { domain: [0, Math.ceil((binge[0]?.episodes || 1) * 1.6)] } },
+          tooltip: [{ field: 'day', title: 'Day' }, { field: 'episodes', title: 'Episodes' }, { field: 'show', title: 'Mostly' }]
+        } },
+      { mark: { type: 'text', align: 'left', dx: 4, color: '#c7cfe2', fontSize: 11 },
+        encoding: { y: { field: 'day', type: 'nominal', sort: binge.map(d => d.day) }, x: { field: 'episodes', type: 'quantitative' }, text: { field: 'show' } } }
+    ]
+  });
+}
+
+function renderRecommendations(recs) {
+  const box = document.getElementById('recs');
+  const draw = filter => {
+    const list = recs.filter(r => filter === 'all' || r.type === filter)
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    box.innerHTML = list.map(r => `
+      <div class="rec">
+        <div class="top">
+          <h3>${r.id ? `<a href="${imdbUrl(r.id)}" target="_blank" rel="noopener">` : ''}${escapeHtml(r.title)}${r.id ? '</a>' : ''}
+            <span class="year">${r.year || ''}</span></h3>
+          ${ratingHtml(r.rating, r.votes)}
+        </div>
+        <div class="badges">
+          <span class="badge ${r.type}">${r.type === 'show' ? 'Series' : 'Movie'}</span>
+          ${(r.genres || []).map(g => `<span class="badge">${escapeHtml(g)}</span>`).join('')}
+          ${r.runtime ? `<span class="badge">${r.runtime} min${r.type === 'show' ? '/ep' : ''}</span>` : ''}
+        </div>
+        <p class="why">${escapeHtml(r.why)}</p>
+        <p class="because">Because I watched ${escapeHtml(r.because)}</p>
+      </div>`).join('') || '<p class="note">No recommendations yet: add some to data/recommendations.csv.</p>';
+  };
+  document.querySelectorAll('#rec-tabs button').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('#rec-tabs button').forEach(b => b.classList.toggle('active', b === btn));
+    draw(btn.dataset.filter);
+  }));
+  draw('all');
+}
+
+function renderContinue(list) {
+  const tbody = document.querySelector('#continue-table tbody');
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" class="muted">Nothing half-finished. Impressive.</td></tr>'; return; }
+  tbody.innerHTML = list.map(s => {
+    const pct = Math.min(100, Math.round(100 * s.watched / s.aired));
+    const n = s.nextUp;
+    return `<tr>
+      <td>${s.id ? `<a href="${imdbUrl(s.id)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a>` : escapeHtml(s.title)}</td>
+      <td class="muted"><span class="progress"><span style="width:${pct}%"></span></span>${s.watched} of ${s.aired}</td>
+      <td>${n ? `${epCode(n.s, n.e)} ${escapeHtml(n.title || '')} ${n.r != null ? `<span class="muted">(&#9733; ${n.r.toFixed(1)})</span>` : ''}` : ''}</td>
+      <td class="num">${ratingHtml(s.rating)}</td>
+      <td class="muted">${fmtDate(s.last + 'T12:00')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderEpisodes(showId, shows) {
+  const show = shows.find(s => s.id === showId);
+  const list = (EPISODES && EPISODES[showId] || []).filter(e => e.s > 0 && e.e != null);
+  document.getElementById('heatmap-title').innerHTML =
+    `${escapeHtml(show ? show.title : '')}: IMDb rating of every episode <span class="subtitle">(outlined = watched)</span>`;
+  if (!list.length) {
+    document.getElementById('chart-episode-heatmap').innerHTML = '<p class="note">No episode data from IMDb for this show.</p>';
+    document.getElementById('chart-episode-line').innerHTML = '';
+    return;
+  }
+  const values = list.map((e, i) => ({
+    season: 'S' + e.s, s: e.s, episode: e.e, title: e.title || '', rating: e.r, votes: e.v,
+    watched: e.w ? 'Watched' : 'Not watched', idx: i + 1, code: epCode(e.s, e.e)
+  }));
+  const rated = values.filter(v => v.rating != null);
+  const seasons = [...new Set(values.map(v => v.s))].sort((a, b) => a - b).map(s => 'S' + s);
+  const maxEp = Math.max(...values.map(v => v.episode));
+  const tooltip = [{ field: 'code', title: 'Episode' }, { field: 'title', title: 'Title' },
+                   { field: 'rating', title: 'IMDb', format: '.1f' }, { field: 'votes', title: 'Votes', format: ',' },
+                   { field: 'watched', title: 'Status' }];
+  embed('chart-episode-heatmap', {
+    data: { values },
+    height: Math.max(80, seasons.length * 26),
+    encoding: {
+      x: { field: 'episode', type: 'ordinal', title: 'Episode', scale: { domain: [...Array(maxEp).keys()].map(i => i + 1) }, axis: { labelAngle: 0, labelOverlap: true } },
+      y: { field: 'season', type: 'ordinal', title: null, sort: seasons }
+    },
+    layer: [
+      { mark: { type: 'rect', cornerRadius: 3 },
+        encoding: {
+          color: { field: 'rating', type: 'quantitative', title: 'IMDb rating', scale: { range: [SEQ[0], SEQ[9]], zero: false }, legend: { orient: 'right' } },
+          stroke: { condition: { test: 'datum.watched === "Watched"', value: C.accent }, value: '#171f30' },
+          strokeWidth: { condition: { test: 'datum.watched === "Watched"', value: 2 }, value: 2 },
+          tooltip
+        } },
+      { mark: { type: 'text', fontSize: 9, fontWeight: 600 },
+        encoding: {
+          text: { field: 'rating', type: 'quantitative', format: '.1f' },
+          color: { condition: { test: 'datum.rating >= ' + (rated.length ? ((Math.min(...rated.map(v => v.rating)) + Math.max(...rated.map(v => v.rating))) / 2).toFixed(2) : 99), value: '#0f1523' }, value: '#e7ebf3' },
+          tooltip
+        } }
+    ]
+  });
+  embed('chart-episode-line', {
+    data: { values: rated },
+    height: 220,
+    layer: [
+      { mark: { type: 'line', color: C.grid, strokeWidth: 2, interpolate: 'monotone' },
+        encoding: { x: { field: 'idx', type: 'quantitative', title: 'Episode # (in order)' }, y: { field: 'rating', type: 'quantitative', title: 'IMDb rating', scale: { zero: false } } } },
+      { mark: { type: 'point', size: 64, strokeWidth: 2 },
+        encoding: {
+          x: { field: 'idx', type: 'quantitative' }, y: { field: 'rating', type: 'quantitative' },
+          color: { field: 'watched', type: 'nominal', title: null, scale: { domain: ['Watched', 'Not watched'], range: [C.accent, C.muted] } },
+          fill: { condition: { test: 'datum.watched === "Watched"', value: C.accent }, value: 'transparent' },
+          tooltip: [{ field: 'code', title: 'Episode' }, { field: 'title', title: 'Title' }, { field: 'rating', title: 'IMDb', format: '.1f' }, { field: 'watched', title: 'Status' }]
+        } }
+    ]
+  });
+}
+
+main();
+</script>
+</body>
+</html>
