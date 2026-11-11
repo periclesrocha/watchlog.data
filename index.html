@@ -22,6 +22,7 @@
     --star: #f5c518;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html { scroll-behavior: smooth; }
   body {
     margin: 0;
@@ -256,10 +257,14 @@
 <section class="section" id="seen-it">
   <div class="section-header">
     <h2>Have I seen it?</h2>
-    <span class="hint">Popular titles on IMDb that aren't in my history. <b>Seen it</b> adds it to my list (no date); <b>Not seen it</b> means it won't be asked again.</span>
+    <span class="hint">Popular titles on IMDb that aren't in my history. <b>Seen it</b> adds one to my list (no date); <b>Not seen it</b> means it won't be asked again.</span>
+  </div>
+  <div class="setup" id="quiz-gate" hidden>
+    Answering is for the site owner: answers are written to this site's GitHub repo, and only a token that can edit the repo can do that.
+    <button class="linkish" id="quiz-signin">Owner sign-in</button>
   </div>
   <div class="setup" id="quiz-setup" hidden>
-    <b>Connect GitHub to save answers.</b> Answers are saved to this site's repo, so the page needs a token that can only edit this repo. It's stored in this browser only.
+    <b>Owner sign-in.</b> Answers are saved to this site's repo, so the page needs a GitHub token that can only edit this repo. GitHub checks it on every save; it's stored in this browser only.
     <ol>
       <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a fine-grained token</a> (signed in as the repo owner).</li>
       <li><b>Repository access</b>: Only select repositories → <b>watchlog.data</b>.</li>
@@ -751,7 +756,7 @@ function statusLine(extra = '') {
   setStatus(`${extra}${msg ? `<span>${msg}</span>` : ''}${undo}${conn}`);
   document.getElementById('quiz-undo')?.addEventListener('click', undoLast);
   document.getElementById('quiz-disconnect')?.addEventListener('click', () => {
-    store.del('token'); document.getElementById('quiz-setup').hidden = false; statusLine();
+    store.del('token'); updateGate(); statusLine();
   });
 }
 
@@ -807,7 +812,6 @@ function answer(id, ans) {
   const card = document.querySelector(`#quiz .rec[data-id="${CSS.escape(id)}"]`);
   if (card) card.classList.add('leaving');
   setTimeout(() => { renderQuiz(); renderSeen(); }, 220);
-  if (!store.get('token', null)) document.getElementById('quiz-setup').hidden = false;
   scheduleSave();
   statusLine();
 }
@@ -861,7 +865,7 @@ async function flush() {
       : (e.status === 403 || e.status === 404) ? 'the token can’t write to watchlog.data (check Contents: Read and write)'
       : e.message;
     statusLine(`<span class="err">Couldn’t save: ${escapeHtml(why)}. Your answers are kept and will be retried.</span>`);
-    if (e.status === 401 || e.status === 403 || e.status === 404) document.getElementById('quiz-setup').hidden = false;
+    if (e.status === 401 || e.status === 403 || e.status === 404) { store.del('token'); updateGate(true); }
   }
 }
 
@@ -887,7 +891,7 @@ async function setupQuiz(data) {
       const repo = await gh('GET', `/repos/${REPO.owner}/${REPO.name}`);
       if (repo.permissions && repo.permissions.push === false) throw Object.assign(new Error('read-only'), { status: 403 });
       input.value = ''; msg.textContent = '';
-      document.getElementById('quiz-setup').hidden = true;
+      updateGate();
       statusLine('<span class="ok">Connected. Answers will be saved to the repo.</span>');
       scheduleSave();
     } catch (e) {
@@ -896,9 +900,23 @@ async function setupQuiz(data) {
         : 'That token can’t write to watchlog.data. It needs Contents: Read and write on this repo.';
     }
   });
-  renderQuiz(); renderSeen(); statusLine();
-  if (Q.queue.length && !store.get('token', null)) document.getElementById('quiz-setup').hidden = false;
+  document.getElementById('quiz-signin').addEventListener('click', () => updateGate(true));
+  renderQuiz(); renderSeen(); updateGate(Q.queue.length > 0); statusLine();
+  // A stored token that GitHub no longer accepts (expired, revoked) signs the owner out.
+  if (store.get('token', null)) {
+    gh('GET', `/repos/${REPO.owner}/${REPO.name}`)
+      .then(r => { if (r.permissions && r.permissions.push === false) throw Object.assign(new Error('read-only'), { status: 403 }); })
+      .catch(e => { if (e.status === 401 || e.status === 403) { store.del('token'); updateGate(true); statusLine(); } });
+  }
   scheduleSave();
+}
+
+// The quiz is only shown to a browser signed in with a token that can write to the repo.
+function updateGate(showSignIn = false) {
+  const signedIn = !!store.get('token', null);
+  document.getElementById('quiz').hidden = !signedIn;
+  document.getElementById('quiz-setup').hidden = signedIn || !showSignIn;
+  document.getElementById('quiz-gate').hidden = signedIn || showSignIn;
 }
 
 main();
