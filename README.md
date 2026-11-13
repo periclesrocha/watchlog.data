@@ -78,19 +78,6 @@ python scripts/build_dashboard.py
 python -m http.server   # then open http://localhost:8000
 ```
 
-## Also on this site: the arterial tree game
-
-`arteries/` is a separate drag-and-drop study game for the arterial blood supply of the
-head and neck: drag each artery from the word bank into its place in the tree, and the
-branch fills with blood when it's right. It has a Practice mode (instant feedback) and a
-Test mode (check your answers at the end).
-
-**Play it:** https://periclesrocha.github.io/watchlog.data/arteries/
-
-It's plain HTML, CSS and JavaScript with no build step. The tree and the terms live in
-`arteries/data.js`; edit that file to change a label or add a branch and the layout
-adjusts itself. The workflow copies the folder into the published site.
-
 ## Enabling GitHub Pages (one-time setup)
 
 Settings → Pages → Build and deployment → Source: **GitHub Actions**.
