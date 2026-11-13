@@ -48,6 +48,7 @@ jobs:
           mkdir -p _site/data
           cp index.html README.md _site/
           cp data/*.json data/*.csv _site/data/
+          cp -r arteries _site/arteries
           touch _site/.nojekyll
 
       - name: Upload site
